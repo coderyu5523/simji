@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/tests', fn() => '준비중')->name('catalog.index');
+Route::get('/tests/room/{code}', fn() => '준비중')->name('catalog.room');
+Route::get('/tests/{code}', fn() => '준비중')->name('catalog.show');
 Route::get('/my', fn() => '준비중')->name('my.index');
 
 Route::get('/guest/start', function () {
