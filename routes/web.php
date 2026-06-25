@@ -16,6 +16,17 @@ Route::get('/tests/room/{code}', [CatalogController::class, 'room'])->name('cata
 Route::get('/tests/{code}', [CatalogController::class, 'show'])->name('catalog.show');
 Route::get('/my', [MyTestController::class, 'index'])->name('my.index');
 
+// 준비중(coming soon) 정적 페이지 — Phase 2에서 실제 구현 예정
+foreach ([
+    'about'         => ['/about',         '심지 소개'],
+    'coaching'      => ['/coaching',      '강의·코칭'],
+    'institution'   => ['/institution',   '기관·단체'],
+    'report.sample' => ['/report-sample', '리포트 샘플'],
+    'support'       => ['/support',       '고객센터'],
+] as $name => [$path, $heading]) {
+    Route::get($path, fn () => view('coming-soon', ['heading' => $heading]))->name($name);
+}
+
 Route::controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
     Route::post('agree', 'agree')->name('agree');
