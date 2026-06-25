@@ -11,9 +11,12 @@ export default {
 
     theme: {
         extend: {
-            fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+            colors: {
+                deepgreen: '#1F4D3F', teal: '#2E7D6B', navy: '#1E2A44',
+                cream: '#F7F3EA', mint: '#BFE3D4',
+                signal: { green: '#3FAE5A', yellow: '#F2B705', red: '#E0584E' },
             },
+            fontFamily: { sans: ['Pretendard', 'sans-serif'] },
         },
     },
 
