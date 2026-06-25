@@ -2,15 +2,19 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\Auth\KakaoController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::get('/tests', fn() => '준비중')->name('catalog.index');
-Route::get('/tests/room/{code}', fn() => '준비중')->name('catalog.room');
-Route::get('/tests/{code}', fn() => '준비중')->name('catalog.show');
+Route::get('/tests', [CatalogController::class, 'index'])->name('catalog.index');
+Route::get('/tests/room/{code}', [CatalogController::class, 'room'])->name('catalog.room');
+Route::get('/tests/{code}', [CatalogController::class, 'show'])->name('catalog.show');
 Route::get('/my', fn() => '준비중')->name('my.index');
+
+// Temporary dummy — Task 7 will replace with real AssessmentController route
+Route::get('/assessment/{code}/consent', fn() => '준비중')->name('assessment.consent');
 
 Route::get('/guest/start', function () {
     if (!session('guest_token')) session(['guest_token' => (string) \Illuminate\Support\Str::uuid()]);
