@@ -19,10 +19,12 @@ Route::controller(AssessmentController::class)->prefix('assessment/{code}')->nam
     Route::post('agree', 'agree')->name('agree');
     Route::get('intro', 'intro')->name('intro');
     Route::post('start', 'start')->name('start');
+    Route::get('take/{attempt}', 'take')->name('take');
+    Route::post('take/{attempt}', 'submit')->name('submit');
 });
 
-// Temporary dummy — Task 8 will replace with real take/submit routes
-Route::get('/assessment/{code}/take/{attempt}', fn() => '준비중')->name('assessment.take');
+// Temporary dummy — Task 9 will replace with real result controller
+Route::get('/result/{attempt}', fn() => '준비중')->name('result.show');
 
 Route::get('/guest/start', function () {
     if (!session('guest_token')) session(['guest_token' => (string) \Illuminate\Support\Str::uuid()]);

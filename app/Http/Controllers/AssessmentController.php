@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Test;
 use App\Models\TestAttempt;
+use App\Services\ScoringService;
 use Illuminate\Http\Request;
 
 class AssessmentController extends Controller
@@ -42,5 +43,35 @@ class AssessmentController extends Controller
             ['test_id' => $test->id, 'status' => 'in_progress', 'started_at' => now()]
         ));
         return redirect()->route('assessment.take', [$code, $attempt->id]);
+    }
+
+    private function authorizeAttempt(Request $request, TestAttempt $attempt): void
+    {
+        $ok = $attempt->user_id
+            ? $attempt->user_id === auth()->id()
+            : $attempt->guest_token === $request->session()->get('guest_token');
+        abort_unless($ok, 403);
+    }
+
+    public function take(Request $request, string $code, TestAttempt $attempt)
+    {
+        $this->authorizeAttempt($request, $attempt);
+        $attempt->load('test.items');
+        return view('assessment.take', ['test' => $attempt->test, 'attempt' => $attempt]);
+    }
+
+    public function submit(Request $request, string $code, TestAttempt $attempt, ScoringService $scoring)
+    {
+        $this->authorizeAttempt($request, $attempt);
+        $data = $request->validate(['answers' => 'required|array']);
+        foreach ($data['answers'] as $itemId => $value) {
+            $attempt->answers()->updateOrCreate(
+                ['test_item_id' => (int) $itemId],
+                ['value' => (int) $value]
+            );
+        }
+        $attempt->update(['status' => 'submitted', 'submitted_at' => now()]);
+        $scoring->score($attempt);
+        return redirect()->route('result.show', $attempt->id);
     }
 }
