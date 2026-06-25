@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 class TestAttempt extends Model
 {
     protected $guarded = [];
@@ -9,4 +10,10 @@ class TestAttempt extends Model
     public function answers() { return $this->hasMany(AttemptAnswer::class, 'attempt_id'); }
     public function result() { return $this->hasOne(TestResult::class, 'attempt_id'); }
     public function user() { return $this->belongsTo(User::class); }
+    public function isOwnedBy(Request $request): bool
+    {
+        return $this->user_id
+            ? $this->user_id === auth()->id()
+            : $this->guest_token === $request->session()->get('guest_token');
+    }
 }

@@ -12,7 +12,7 @@ return new class extends Migration
             $t->id();
             $t->foreignId('attempt_id')->unique()->constrained('test_attempts')->cascadeOnDelete();
             $t->json('area_scores'); $t->string('overall_level');
-            $t->enum('overall_signal', ['green','yellow','red']);
+            $t->string('overall_signal');
             $t->json('area_signals'); $t->text('interpretation'); $t->json('recommendations');
             $t->timestamps();
         });

@@ -18,10 +18,11 @@ class KakaoController extends Controller
     public function callback()
     {
         $k = Socialite::driver('kakao')->user();
-        $user = User::updateOrCreate(
+        $user = User::firstOrCreate(
             ['email' => $k->getEmail() ?: "kakao_{$k->getId()}@simji.local"],
             ['name' => $k->getName() ?: '심지회원', 'password' => bcrypt(Str::random(32))]
         );
+        if ($k->getName() && $user->name !== $k->getName()) { $user->update(['name' => $k->getName()]); }
         Auth::login($user, true);
         return redirect()->route('catalog.index');
     }

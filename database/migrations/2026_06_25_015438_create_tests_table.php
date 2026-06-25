@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('tests', function (Blueprint $t) {
             $t->id();
             $t->string('code')->unique();
-            $t->enum('room', ['univ','worker','silver']);
+            $t->string('room');
             $t->string('title_easy'); $t->string('title_pro');
             $t->string('target'); $t->unsignedSmallInteger('duration_min');
             $t->unsignedSmallInteger('item_count');

@@ -15,6 +15,7 @@ class ScoringService
 
         $areaScores = [];
         foreach ($attempt->answers as $ans) {
+            if (!isset($itemsById[$ans->test_item_id])) continue;
             $item = $itemsById[$ans->test_item_id];
             $val = $item->reverse ? (6 - $ans->value) : $ans->value;
             $areaScores[$item->area] = ($areaScores[$item->area] ?? 0) + $val;

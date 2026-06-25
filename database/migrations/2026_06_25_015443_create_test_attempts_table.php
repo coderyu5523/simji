@@ -13,7 +13,7 @@ return new class extends Migration
             $t->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $t->string('guest_token')->nullable();
             $t->foreignId('test_id')->constrained()->cascadeOnDelete();
-            $t->enum('status', ['in_progress','submitted'])->default('in_progress');
+            $t->string('status')->default('in_progress');
             $t->timestamp('started_at')->nullable(); $t->timestamp('submitted_at')->nullable();
             $t->timestamps();
         });

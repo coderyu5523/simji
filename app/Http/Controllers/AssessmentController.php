@@ -25,6 +25,7 @@ class AssessmentController extends Controller
 
     public function agree(Request $request, string $code)
     {
+        Test::where('code', $code)->firstOrFail();
         $request->validate(['agree' => 'accepted']);
         return redirect()->route('assessment.intro', $code);
     }
@@ -47,10 +48,7 @@ class AssessmentController extends Controller
 
     private function authorizeAttempt(Request $request, TestAttempt $attempt): void
     {
-        $ok = $attempt->user_id
-            ? $attempt->user_id === auth()->id()
-            : $attempt->guest_token === $request->session()->get('guest_token');
-        abort_unless($ok, 403);
+        abort_unless($attempt->isOwnedBy($request), 403);
     }
 
     public function take(Request $request, string $code, TestAttempt $attempt)
@@ -63,8 +61,14 @@ class AssessmentController extends Controller
     public function submit(Request $request, string $code, TestAttempt $attempt, ScoringService $scoring)
     {
         $this->authorizeAttempt($request, $attempt);
-        $data = $request->validate(['answers' => 'required|array']);
+        abort_if($attempt->status === 'submitted', 409);
+        $validItemIds = $attempt->test->items()->pluck('id')->all();
+        $data = $request->validate([
+            'answers' => 'required|array',
+            'answers.*' => 'integer|min:1|max:5',
+        ]);
         foreach ($data['answers'] as $itemId => $value) {
+            if (!in_array((int)$itemId, $validItemIds, true)) continue;
             $attempt->answers()->updateOrCreate(
                 ['test_item_id' => (int) $itemId],
                 ['value' => (int) $value]
