@@ -6,6 +6,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\Auth\KakaoController;
 use App\Http\Controllers\ResultController;
+use App\Http\Controllers\MyTestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -13,7 +14,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/tests', [CatalogController::class, 'index'])->name('catalog.index');
 Route::get('/tests/room/{code}', [CatalogController::class, 'room'])->name('catalog.room');
 Route::get('/tests/{code}', [CatalogController::class, 'show'])->name('catalog.show');
-Route::get('/my', fn() => '준비중')->name('my.index');
+Route::get('/my', [MyTestController::class, 'index'])->name('my.index');
 
 Route::controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
