@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\Auth\KakaoController;
+use App\Http\Controllers\ResultController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -23,8 +24,7 @@ Route::controller(AssessmentController::class)->prefix('assessment/{code}')->nam
     Route::post('take/{attempt}', 'submit')->name('submit');
 });
 
-// Temporary dummy — Task 9 will replace with real result controller
-Route::get('/result/{attempt}', fn() => '준비중')->name('result.show');
+Route::get('/result/{attempt}', [ResultController::class, 'show'])->name('result.show');
 
 Route::get('/guest/start', function () {
     if (!session('guest_token')) session(['guest_token' => (string) \Illuminate\Support\Str::uuid()]);
