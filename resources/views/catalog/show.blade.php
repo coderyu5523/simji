@@ -32,7 +32,15 @@
       </div>
 
       <div class="mt-8 flex flex-wrap gap-3">
-        <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+        @if($product && !$hasVoucher)
+          @auth
+            <a href="{{ route('checkout.show', $product->id) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">{{ number_format($product->price) }}원 구매하고 응시</a>
+          @else
+            <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">{{ number_format($product->price) }}원 로그인하고 구매</a>
+          @endauth
+        @else
+          <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+        @endif
         <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
       </div>
     </div>

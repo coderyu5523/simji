@@ -19,9 +19,11 @@ class CatalogController extends Controller
         return view('catalog.room', compact('room', 'tests'));
     }
 
-    public function show(string $code)
+    public function show(string $code, \App\Services\VoucherService $vouchers)
     {
         $test = Test::where('code', $code)->firstOrFail();
-        return view('catalog.show', compact('test'));
+        $product = $test->activeProduct();
+        $hasVoucher = auth()->check() ? $vouchers->availableCount(auth()->user(), $test) > 0 : false;
+        return view('catalog.show', compact('test', 'product', 'hasVoucher'));
     }
 }
