@@ -27,10 +27,9 @@ class AssessmentController extends Controller
     {
         $test = Test::where('code', $code)->firstOrFail();
         $rules = ['agree' => 'accepted'];
-        if ($test->requires_guardian_consent) {
-            $rules['guardian_agree'] = 'accepted';
-        }
+        if ($test->requires_guardian_consent) $rules['guardian_agree'] = 'accepted';
         $request->validate($rules);
+        $request->session()->put('consent_ok:'.$code, true);
         return redirect()->route('assessment.intro', $code);
     }
 
@@ -40,13 +39,33 @@ class AssessmentController extends Controller
         return view('assessment.intro', compact('test'));
     }
 
-    public function start(Request $request, string $code)
+    public function start(Request $request, string $code, \App\Services\VoucherService $vouchers)
     {
         $test = Test::where('code', $code)->firstOrFail();
+
+        // 보호자 동의 검사: 동의 통과 세션 플래그 없으면 동의로
+        if ($test->requires_guardian_consent && !$request->session()->get('consent_ok:'.$code)) {
+            return redirect()->route('assessment.consent', $code);
+        }
+
+        $consume = null;
+        if ($test->isPaid()) {
+            if (!auth()->check()) return redirect()->route('login');
+            $consume = $vouchers->firstActive(auth()->user(), $test);
+            if (!$consume) {
+                return redirect()->route('checkout.show', $test->activeProduct()->id);
+            }
+        }
+
         $attempt = TestAttempt::create(array_merge(
             $this->actorColumns($request),
             ['test_id' => $test->id, 'status' => 'in_progress', 'started_at' => now()]
         ));
+
+        if ($consume) {
+            $vouchers->consume(auth()->user(), $test, $attempt);
+        }
+
         return redirect()->route('assessment.take', [$code, $attempt->id]);
     }
 
