@@ -7,6 +7,24 @@
     </div>
   </section>
 
+  <section class="bg-white">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <h2 class="font-bold text-deepgreen mb-4">보유 검사권</h2>
+      @if($vouchers->isEmpty())
+        <p class="text-sm text-navy/50">보유한 검사권이 없습니다. <a href="{{ route('catalog.index') }}" class="text-teal font-semibold">검사 둘러보기</a></p>
+      @else
+        <ul class="divide-y divide-black/5">
+          @foreach($vouchers as $v)
+            <li class="flex items-center justify-between py-3">
+              <span class="text-navy/80">{{ $v->test->title_easy }} <span class="text-xs text-navy/40 ml-1">검사권</span></span>
+              <span class="text-xs text-navy/50">~{{ optional($v->expires_at)->format('Y.m.d') ?? '무제한' }}</span>
+            </li>
+          @endforeach
+        </ul>
+      @endif
+    </div>
+  </section>
+
   <div class="bg-cream min-h-[40vh]">
     <div class="max-w-3xl mx-auto px-4 py-12">
       @if($attempts->isEmpty())

@@ -11,6 +11,14 @@ class MyTestController extends Controller
         $query = TestAttempt::where('status', 'submitted')->with('test', 'result')->latest('submitted_at');
         if (auth()->check()) $query->where('user_id', auth()->id());
         else $query->where('guest_token', $request->session()->get('guest_token'));
-        return view('my.index', ['attempts' => $query->get()]);
+        $vouchers = auth()->check()
+            ? \App\Models\Voucher::with('test')
+                ->where('user_id', auth()->id())
+                ->where('status', 'active')
+                ->where(function ($q) { $q->whereNull('expires_at')->orWhere('expires_at', '>', now()); })
+                ->orderBy('issued_at')
+                ->get()
+            : collect();
+        return view('my.index', ['attempts' => $query->get(), 'vouchers' => $vouchers]);
     }
 }
