@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\KakaoController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\MyTestController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -60,7 +61,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });
 
-// TODO Task 5: replace with real PaymentController@return
-Route::match(['get','post'], '/payment/return', fn () => abort(404))->name('payment.return');
+// payment.return は PG が呼ぶため auth グループ外(セッションなし可)
+Route::match(['get','post'], '/payment/return', [PaymentController::class, 'return'])->name('payment.return');
+Route::middleware('auth')->group(function () {
+    Route::get('/payment/complete/{order}', [PaymentController::class, 'complete'])->name('payment.complete');
+    Route::get('/payment/fail', [PaymentController::class, 'fail'])->name('payment.fail');
+});
 
 require __DIR__.'/auth.php';
