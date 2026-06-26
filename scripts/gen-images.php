@@ -23,6 +23,17 @@ $jobs = [
     'etc/empty.png'    => "$base $styleHint Empty cozy room waiting to be filled, inviting.",
 ];
 
+// 인자로 특정 이미지만 골라 생성 (없으면 전체). 부분 문자열 매칭.
+//   php scripts/gen-images.php elem middle   → elem.png, middle.png 만
+$filters = array_slice($argv, 1);
+if ($filters) {
+    $jobs = array_filter($jobs, function ($path) use ($filters) {
+        foreach ($filters as $f) { if (strpos($path, $f) !== false) return true; }
+        return false;
+    }, ARRAY_FILTER_USE_KEY);
+    if (!$jobs) { fwrite(STDERR, "매칭되는 이미지 없음: " . implode(',', $filters) . "\n"); exit(1); }
+}
+
 $model = $style === 'photo' ? 'imagen-4.0-generate-001' : 'gemini-2.5-flash-image';
 foreach ($jobs as $path => $prompt) {
     $out = __DIR__ . "/../public/images/$path";
