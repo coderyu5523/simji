@@ -41,4 +41,12 @@ return [
         'redirect' => env('KAKAO_REDIRECT', 'https://simji.org/auth/kakao/callback'),
     ],
 
+    'pg' => [
+        'driver' => env('PG_DRIVER', 'fake'), // fake | inicis
+        'inicis' => [
+            'mid' => env('INICIS_MID', 'INIpayTest'),
+            'sign_key' => env('INICIS_SIGN_KEY', ''),
+        ],
+    ],
+
 ];

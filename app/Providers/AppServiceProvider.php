@@ -11,7 +11,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(\App\Payments\PaymentGateway::class, function () {
+            return match (config('services.pg.driver')) {
+                // 'inicis' => new \App\Payments\InicisGateway(...), // 향후 분리 태스크
+                default => new \App\Payments\FakeGateway(),
+            };
+        });
     }
 
     /**

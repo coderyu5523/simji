@@ -57,4 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// TODO Task 5: replace with real PaymentController@return
+Route::match(['get','post'], '/payment/return', fn () => abort(404))->name('payment.return');
+
 require __DIR__.'/auth.php';
