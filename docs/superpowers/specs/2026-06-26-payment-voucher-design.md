@@ -110,7 +110,7 @@
 - `TestAttempt` belongsTo voucher.
 
 ## 서비스 (도메인 로직 격리)
-- **PaymentGateway 인터페이스**: `begin(Order $o): array`(PG 결제창 파라미터/리다이렉트), `approve(array $return): PaymentResult`(인증결과→승인 호출, 금액·위변조 검증). 구현: `InicisGateway`, `KcpGateway`(단디 PHP 라이브러리 포팅), 테스트용 `FakeGateway`. `config/services.php`에서 provider 선택.
+- **PaymentGateway 인터페이스**: `begin(Order $o): array`(PG 결제창 파라미터/리다이렉트), `approve(array $return): PaymentResult`(인증결과→승인 호출, 금액·위변조 검증). 구현: **`InicisGateway`(KG이니시스, 1순위)** + 테스트용 `FakeGateway`. `KcpGateway`는 인터페이스 자리만 두고 향후. `config/services.php`에서 provider 선택.
 - **CheckoutService**: `createOrder(User, Product, int $qty): Order` — order(pending)+order_item 스냅샷 생성, total 계산.
 - **VoucherService**:
   - `issueForOrder(Order): void` — **멱등**. order=paid일 때 각 order_item마다 `credit_qty*quantity`장 발급. 이미 발급된 order_item이면 skip(이중 발급 차단).
@@ -162,9 +162,11 @@
 - **동시성**: `consume`은 트랜잭션 + 행 잠금(`lockForUpdate`)으로 같은 검사권 이중 차감 방지.
 
 ## PG 통합 메모
-- 단디 INICIS/KCP PHP 라이브러리를 Laravel Service로 래핑. 인증→승인 2단계.
-- 키/상점ID는 `.env`(`config/services.php` 경유). 운영/테스트 분리.
-- 테스트는 `FakeGateway`로 PG 미접속(실결제 호출 금지).
+- **KG이니시스 1순위.** 단디 INICIS PHP 라이브러리를 Laravel Service로 래핑. 인증→승인 2단계.
+- 개발·검증은 **테스트 상점아이디(`INIpayTest`)** 로 진행 — 실결제 MID 없이 전 흐름 구현 가능.
+- 키/상점ID(MID)·signKey는 `.env`(`config/services.php` 경유). 테스트/운영 분리.
+- 테스트(자동화)는 `FakeGateway`로 PG 미접속(실결제 호출 금지).
+- **[외부 선결조건 — 코드와 무관]** 실결제는 심지 운영 도메인에 묶인 **별도 MID**가 필요. 심지가 단디와 동일 사업자번호면 기존 가맹점에 **추가 상점(MID) 등록 + 도메인 등록 + 카드사 재심사**, 다른 사업자면 신규 계약. 심사 시 이용약관·환불정책·개인정보처리방침·사업자정보 페이지 필요. 디지털상품(검사권) 구매안전(에스크로) 처리는 KG이니시스 가맹 담당 확인. → 도메인 오픈 후 `.env` MID 교체만 하면 전환.
 
 ## 테스트 전략 (Pest)
 - **Unit**: VoucherService FIFO(무료→유료 순서/만료 제외/없으면 예외), issueForOrder 멱등, 금액 검증.
