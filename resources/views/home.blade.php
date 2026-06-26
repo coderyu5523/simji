@@ -8,7 +8,7 @@
       <div>
         <span class="inline-block rounded-full bg-mint/20 text-mint px-3 py-1 text-xs font-semibold mb-5">전 생애 마음건강 플랫폼</span>
         <h1 class="text-3xl md:text-5xl font-extrabold leading-[1.2]">마음을 검사하고,<br><span class="text-mint">삶을 코칭하다</span></h1>
-        <p class="mt-5 text-cream/80 text-base md:text-lg leading-relaxed">대학생부터 실버 세대까지, 연령별 마음상태를 과학적으로 확인하고<br class="hidden md:block"> 결과 이후 맞춤 강의·코칭으로 연결합니다.</p>
+        <p class="mt-5 text-cream/80 text-base md:text-lg leading-relaxed">초등학생부터 실버 세대까지, 연령별 마음상태를 과학적으로 확인하고<br class="hidden md:block"> 결과 이후 맞춤 강의·코칭으로 연결합니다.</p>
         <div class="mt-8 flex flex-wrap gap-3">
           <a href="{{ route('catalog.index') }}" class="rounded-xl bg-mint text-deepgreen px-7 py-3.5 font-bold shadow-lg hover:brightness-105 transition">심리검사 시작하기</a>
           <a href="{{ route('coaching') }}" class="rounded-xl border border-cream/40 text-cream px-7 py-3.5 font-semibold hover:bg-cream/10 transition">강의·코칭 둘러보기</a>
@@ -31,7 +31,7 @@
     <div class="max-w-6xl mx-auto px-4 py-12 grid sm:grid-cols-3 gap-5">
       @php
         $values = [
-          ['t'=>'연령별 마음방','d'=>'대학생·직장인·실버 맞춤 구성','p'=>'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6'],
+          ['t'=>'연령별 마음방','d'=>'초등학생부터 실버까지 맞춤 구성','p'=>'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6'],
           ['t'=>'신호등 결과 리포트','d'=>'초록·노랑·빨강으로 한눈에','p'=>'M12 2a4 4 0 0 1 4 4 4 4 0 1 1-8 0 4 4 0 0 1 4-4zM12 10a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'],
           ['t'=>'검사 → 코칭 연결','d'=>'결과 이후의 변화까지','p'=>'M5 12h14M13 6l6 6-6 6'],
         ];

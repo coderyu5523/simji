@@ -11,6 +11,8 @@ $styleHint = $style === 'photo'
     : "Clean editorial flat illustration, soft gradients, gentle shapes, motifs of tree/light/room/mind-map.";
 
 $jobs = [
+    'rooms/elem.png'   => "$base $styleHint An elementary school child, safe and bright, gentle and reassuring.",
+    'rooms/middle.png' => "$base $styleHint A teenage student, navigating emotions and future paths, hopeful.",
     'rooms/univ.png'   => "$base $styleHint A university student in their early 20s, hopeful, exploring identity and relationships.",
     'rooms/worker.png' => "$base $styleHint A working adult in their 30s-40s, calm recovery from a busy day.",
     'rooms/silver.png' => "$base $styleHint A dignified senior, gentle vitality, warmth and reflection.",
