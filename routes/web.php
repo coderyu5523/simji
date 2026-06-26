@@ -8,6 +8,7 @@ use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\Auth\KakaoController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\MyTestController;
+use App\Http\Controllers\CheckoutController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -55,6 +56,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/checkout/{product}', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });
 
 // TODO Task 5: replace with real PaymentController@return
