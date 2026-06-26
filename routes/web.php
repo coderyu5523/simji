@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\CoachingController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\Auth\KakaoController;
 use App\Http\Controllers\ResultController;
@@ -15,11 +16,11 @@ Route::get('/tests', [CatalogController::class, 'index'])->name('catalog.index')
 Route::get('/tests/room/{code}', [CatalogController::class, 'room'])->name('catalog.room');
 Route::get('/tests/{code}', [CatalogController::class, 'show'])->name('catalog.show');
 Route::get('/my', [MyTestController::class, 'index'])->name('my.index');
+Route::get('/coaching', [CoachingController::class, 'index'])->name('coaching');
 
 // 준비중(coming soon) 정적 페이지 — Phase 2에서 실제 구현 예정
 foreach ([
     'about'         => ['/about',         '심지 소개'],
-    'coaching'      => ['/coaching',      '강의·코칭'],
     'institution'   => ['/institution',   '기관·단체'],
     'report.sample' => ['/report-sample', '리포트 샘플'],
     'support'       => ['/support',       '고객센터'],
