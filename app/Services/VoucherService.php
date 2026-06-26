@@ -31,7 +31,11 @@ class VoucherService
 
     public function firstActive(User $user, Test $test): ?Voucher
     {
-        return $this->activeQuery($user, $test)->orderBy('issued_at')->orderBy('id')->first();
+        return $this->activeQuery($user, $test)
+            ->orderByRaw("CASE source WHEN 'free' THEN 0 WHEN 'referral' THEN 1 ELSE 2 END")
+            ->orderBy('issued_at')
+            ->orderBy('id')
+            ->first();
     }
 
     public function availableCount(User $user, Test $test): int
@@ -43,7 +47,9 @@ class VoucherService
     {
         return DB::transaction(function () use ($user, $test, $attempt) {
             $voucher = $this->activeQuery($user, $test)
-                ->orderBy('issued_at')->orderBy('id')
+                ->orderByRaw("CASE source WHEN 'free' THEN 0 WHEN 'referral' THEN 1 ELSE 2 END")
+                ->orderBy('issued_at')
+                ->orderBy('id')
                 ->lockForUpdate()->first();
             if (!$voucher) {
                 throw new \RuntimeException('사용 가능한 검사권이 없습니다.');

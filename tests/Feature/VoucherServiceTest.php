@@ -49,6 +49,15 @@ test('consume ignores expired vouchers', function () {
     expect(fn() => app(VoucherService::class)->consume($u, $t, $a))->toThrow(RuntimeException::class);
 });
 
+test('consume prefers free/referral over purchase even if purchase is older', function () {
+    $u = User::factory()->create(); $t = paidTest();
+    $paidOld = Voucher::create(['user_id'=>$u->id,'test_id'=>$t->id,'source'=>'purchase','status'=>'active','issued_at'=>now()->subDays(5),'expires_at'=>now()->addYear()]);
+    $freeNew = Voucher::create(['user_id'=>$u->id,'test_id'=>$t->id,'source'=>'free','status'=>'active','issued_at'=>now(),'expires_at'=>now()->addYear()]);
+    $a = TestAttempt::create(['user_id'=>$u->id,'test_id'=>$t->id,'status'=>'in_progress','started_at'=>now()]);
+    $used = app(\App\Services\VoucherService::class)->consume($u, $t, $a);
+    expect($used->id)->toBe($freeNew->id); // 무료가 더 늦게 발급됐어도 먼저 소비
+});
+
 test('availableCount counts only active non-expired', function () {
     $u = User::factory()->create(); $t = paidTest();
     Voucher::create(['user_id'=>$u->id,'test_id'=>$t->id,'status'=>'active','source'=>'purchase','issued_at'=>now(),'expires_at'=>now()->addYear()]);
