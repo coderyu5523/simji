@@ -20,6 +20,11 @@ class PaymentController extends Controller
             return redirect()->route('payment.complete', $order->id);
         }
 
+        // 종료 상태 재진입 차단: failed/canceled/refunded 등 pending이 아닌 상태면 실패 페이지
+        if ($order->status !== 'pending') {
+            return redirect()->route('payment.fail');
+        }
+
         // PG 실패 또는 금액 위변조 → 실패 처리
         if (!$result->success || (int) $result->amount !== (int) $order->total_amount) {
             DB::transaction(function () use ($order, $result) {

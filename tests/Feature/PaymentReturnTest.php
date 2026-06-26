@@ -54,3 +54,13 @@ test('unauthenticated PG callback still approves and issues voucher', function (
     expect($o->fresh()->status)->toBe('paid');
     expect(App\Models\Voucher::where('user_id',$u->id)->where('status','active')->count())->toBe(1);
 });
+
+test('a failed order cannot be re-approved by a later success callback', function () {
+    $u = App\Models\User::factory()->create();
+    [$t,$p,$o] = paidOrderViaCheckout($u);
+    $o->update(['status'=>'failed']); // 이미 실패 처리된 주문
+    $this->post('/payment/return', ['order_no'=>$o->order_no,'amount'=>$o->total_amount,'result'=>'success'])
+        ->assertRedirect(route('payment.fail'));
+    expect($o->fresh()->status)->toBe('failed');
+    expect(App\Models\Voucher::count())->toBe(0);
+});
