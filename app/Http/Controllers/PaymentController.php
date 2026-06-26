@@ -21,7 +21,7 @@ class PaymentController extends Controller
         }
 
         // PG 실패 또는 금액 위변조 → 실패 처리
-        if (!$result->success || $result->amount !== $order->total_amount) {
+        if (!$result->success || (int) $result->amount !== (int) $order->total_amount) {
             DB::transaction(function () use ($order, $result) {
                 $order->update(['status' => 'failed']);
                 $order->payments()->create([

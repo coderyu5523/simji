@@ -61,7 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });
 
-// payment.return は PG が呼ぶため auth グループ外(セッションなし可)
+// payment.return: PG가 호출하므로 auth 그룹 밖(세션 없을 수 있음)
 Route::match(['get','post'], '/payment/return', [PaymentController::class, 'return'])->name('payment.return');
 Route::middleware('auth')->group(function () {
     Route::get('/payment/complete/{order}', [PaymentController::class, 'complete'])->name('payment.complete');

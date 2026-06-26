@@ -6,9 +6,12 @@
       <p class="text-navy/60 mt-2">주문번호 {{ $order->order_no }}</p>
       @php $item = $order->items->first(); @endphp
       @if($item)
+        @php($test = \App\Models\Test::find($item->test_id))
         <p class="text-navy/70 mt-1">{{ $item->product_name }} · 검사권 {{ $item->credit_qty * $item->quantity }}장 발급</p>
         <div class="mt-8 flex flex-wrap justify-center gap-3">
-          <a href="{{ route('catalog.show', \App\Models\Test::find($item->test_id)->code) }}" class="rounded-xl bg-deepgreen text-cream px-6 py-3 font-semibold hover:brightness-110 transition">검사 시작하기</a>
+          @if($test)
+            <a href="{{ route('catalog.show', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-6 py-3 font-semibold hover:brightness-110 transition">검사 시작하기</a>
+          @endif
           <a href="{{ route('my.index') }}" class="rounded-xl border border-teal text-teal px-6 py-3 font-semibold hover:bg-mint/30 transition">내 검사함</a>
         </div>
       @endif

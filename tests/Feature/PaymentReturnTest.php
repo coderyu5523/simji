@@ -44,3 +44,13 @@ test('pg failure fails the order', function () {
         ->assertRedirect(route('payment.fail'));
     expect($o->fresh()->status)->toBe('failed');
 });
+
+test('unauthenticated PG callback still approves and issues voucher', function () {
+    $u = App\Models\User::factory()->create();
+    [$t,$p,$o] = paidOrderViaCheckout($u);
+    // no actingAs — PG server-to-server callback
+    $this->post('/payment/return', ['order_no'=>$o->order_no,'amount'=>$o->total_amount,'result'=>'success'])
+        ->assertRedirect(route('payment.complete', $o->id));
+    expect($o->fresh()->status)->toBe('paid');
+    expect(App\Models\Voucher::where('user_id',$u->id)->where('status','active')->count())->toBe(1);
+});
