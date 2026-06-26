@@ -4,7 +4,7 @@ use Illuminate\Database\Eloquent\Model;
 class Test extends Model
 {
     protected $guarded = [];
-    protected $casts = ['areas' => 'array'];
+    protected $casts = ['areas' => 'array', 'requires_guardian_consent' => 'boolean'];
     public function items() { return $this->hasMany(TestItem::class)->orderBy('no'); }
     public function scoringRule() { return $this->hasOne(ScoringRule::class); }
 }

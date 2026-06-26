@@ -25,8 +25,12 @@ class AssessmentController extends Controller
 
     public function agree(Request $request, string $code)
     {
-        Test::where('code', $code)->firstOrFail();
-        $request->validate(['agree' => 'accepted']);
+        $test = Test::where('code', $code)->firstOrFail();
+        $rules = ['agree' => 'accepted'];
+        if ($test->requires_guardian_consent) {
+            $rules['guardian_agree'] = 'accepted';
+        }
+        $request->validate($rules);
         return redirect()->route('assessment.intro', $code);
     }
 
