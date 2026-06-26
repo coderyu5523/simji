@@ -49,10 +49,6 @@ Route::get('/guest/start', function () {
 Route::get('/auth/kakao', [KakaoController::class, 'redirect'])->name('kakao.redirect');
 Route::get('/auth/kakao/callback', [KakaoController::class, 'callback'])->name('kakao.callback');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

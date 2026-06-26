@@ -1,29 +1,25 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Profile') }}
-        </h2>
-    </x-slot>
+<x-layouts.app :title="'프로필 · simji 심지'">
+    <div class="bg-cream min-h-[60vh]">
+        <div class="max-w-3xl mx-auto px-4 py-12 space-y-6">
+            <h1 class="text-2xl font-extrabold text-deepgreen">프로필 설정</h1>
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+            <div class="rounded-3xl bg-white p-6 sm:p-8 shadow-sm ring-1 ring-black/5">
                 <div class="max-w-xl">
                     @include('profile.partials.update-profile-information-form')
                 </div>
             </div>
 
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+            <div class="rounded-3xl bg-white p-6 sm:p-8 shadow-sm ring-1 ring-black/5">
                 <div class="max-w-xl">
                     @include('profile.partials.update-password-form')
                 </div>
             </div>
 
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+            <div class="rounded-3xl bg-white p-6 sm:p-8 shadow-sm ring-1 ring-black/5">
                 <div class="max-w-xl">
                     @include('profile.partials.delete-user-form')
                 </div>
             </div>
         </div>
     </div>
-</x-app-layout>
+</x-layouts.app>
