@@ -16,4 +16,5 @@ class TestAttempt extends Model
             ? $this->user_id === auth()->id()
             : $this->guest_token === $request->session()->get('guest_token');
     }
+    public function voucher() { return $this->belongsTo(Voucher::class); }
 }
