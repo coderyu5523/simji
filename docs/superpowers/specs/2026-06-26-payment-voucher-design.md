@@ -180,3 +180,10 @@
 
 ## 향후 Phase (의식만, 이번 비범위)
 - 기관 B2B(대량 구매·코드 발급·세금계산서·집단 리포트), 장바구니/다건, 포인트·추천정산, 강의코칭 결제, 만료 cron, 관리자 환불·매출 통계.
+
+## InicisGateway 실구현 시 하드 선결조건 (2026-06-26 최종 리뷰 지적)
+실 KG이니시스 어댑터 PR과 운영 전환 시 **반드시 함께** 처리:
+1. **CSRF 예외 + 서명 검증을 같이**: `/payment/return`은 PG 도메인에서 브라우저 POST로 들어오므로 현재 상태면 419(CSRF). `bootstrap/app.php`에 `validateCsrfTokens(except:['payment/return'])` 추가 **그리고** 반드시 KG이니시스 서명/해시(주문번호·금액·signKey) 서버 검증을 함께 넣어야 함(CSRF만 풀고 검증 없으면 위조 POST로 무결제 발급 가능).
+2. **운영 무결제 발급 차단**: FakeGateway는 `app()->isProduction()`에서 throw하도록 가드 완료. 운영에선 `PG_DRIVER=inicis` 필수. **운영에서 `db:seed`(PaidSampleSeeder=active 9,900원 상품) 금지**, 유료 상품 active 전환은 실 어댑터 가동 후에만.
+3. **return 종료상태 가드 완료**: pending 외(paid→완료, failed/canceled→실패) 재진입 차단됨. 실 어댑터에서도 유지.
+- (Minor 백로그) `consent_ok:{code}` 세션 플래그 미소거(재응시 시 재동의 불요), firstActive↔consume 레이스 단일 트랜잭션 래핑, issueForOrder max(1,…) 0값 가드.
