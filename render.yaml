@@ -1,0 +1,31 @@
+# Render Blueprint — 내부 검토용 무료 프리뷰 (카드 등록 불필요)
+# Render 대시보드 > New > Blueprint 에서 이 저장소를 고르면 자동 인식됩니다.
+services:
+  - type: web
+    name: simji-preview
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: feat/partial-implementation
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_NAME
+        value: simji
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "true"          # 내부 검토용: 에러를 바로 보이게. 실서비스 전 false 로.
+      - key: APP_KEY
+        value: base64:Fy6n3m1XmGV3+pOph27IGMucldzY78IgDUbV81VflA4=
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /app/database/database.sqlite
