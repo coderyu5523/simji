@@ -46,7 +46,10 @@
     </form>
 
     <div class="mt-6">
-        <a href="{{ route('kakao.redirect') }}" class="block text-center rounded-lg bg-[#FEE500] py-2 font-semibold text-[#3C1E1E]">카카오로 시작하기</a>
+        <a href="{{ route('kakao.redirect') }}" class="flex items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-3.5 font-bold text-[#3C1E1E] hover:brightness-95 transition">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.6-.8 3 0 .3.2.3.4.2.2-.1 2.5-1.7 3.5-2.4.7.1 1.4.2 2.2.2 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+            카카오 로그인
+        </a>
     </div>
 
     <p class="mt-6 text-center text-sm text-gray-600">
