@@ -37,7 +37,8 @@
         <a href="{{ route('my.index') }}" class="hidden md:inline px-3 py-2 rounded-lg hover:bg-cream/10 transition text-sm">내 검사함</a>
       @endauth
       @guest
-        <a href="{{ route('login') }}" class="hidden sm:inline px-4 py-2 rounded-full bg-mint text-deepgreen font-semibold hover:brightness-105 transition text-sm">로그인</a>
+        <a href="{{ route('login') }}" class="hidden sm:inline px-3 py-2 rounded-lg hover:bg-cream/10 transition text-sm">로그인</a>
+        <a href="{{ route('register') }}" class="hidden sm:inline px-4 py-2 rounded-full bg-mint text-deepgreen font-semibold hover:brightness-105 transition text-sm">회원가입</a>
       @endguest
 
       {{-- 모바일 메뉴 (JS 불필요, details/summary) --}}
@@ -51,7 +52,10 @@
           @endforeach
           <div class="my-1 border-t border-cream/15"></div>
           @auth <a href="{{ route('my.index') }}" class="block px-4 py-2.5 text-sm hover:bg-cream/10">내 검사함</a> @endauth
-          @guest <a href="{{ route('login') }}" class="block px-4 py-2.5 text-sm font-semibold text-mint hover:bg-cream/10">로그인</a> @endguest
+          @guest
+            <a href="{{ route('login') }}" class="block px-4 py-2.5 text-sm hover:bg-cream/10">로그인</a>
+            <a href="{{ route('register') }}" class="block px-4 py-2.5 text-sm font-semibold text-mint hover:bg-cream/10">회원가입</a>
+          @endguest
         </div>
       </details>
     </div>
