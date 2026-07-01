@@ -1,52 +1,66 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('register') }}">
+    <h1 class="text-xl font-extrabold text-deepgreen text-center mb-6">회원가입</h1>
+
+    <form method="POST" action="{{ route('register') }}" class="space-y-4">
         @csrf
 
-        <!-- Name -->
+        {{-- 이름 --}}
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <label for="name" class="block text-sm font-semibold text-deepgreen mb-1.5">이름 <span class="text-signal-red">*</span></label>
+            <input id="name" name="name" type="text" value="{{ old('name') }}" required autofocus autocomplete="name"
+                   class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-navy/80 focus:outline-none focus:ring-2 focus:ring-teal/40">
+            @error('name') <p class="text-signal-red text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
-        <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        {{-- 이메일 --}}
+        <div>
+            <label for="email" class="block text-sm font-semibold text-deepgreen mb-1.5">이메일 <span class="text-signal-red">*</span></label>
+            <input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="username" placeholder="name@example.com"
+                   class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-navy/80 focus:outline-none focus:ring-2 focus:ring-teal/40">
+            @error('email') <p class="text-signal-red text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        {{-- 휴대폰 번호 --}}
+        <div>
+            <label for="phone" class="block text-sm font-semibold text-deepgreen mb-1.5">휴대폰 번호 <span class="text-signal-red">*</span></label>
+            <input id="phone" name="phone" type="tel" value="{{ old('phone') }}" required autocomplete="tel" placeholder="010-1234-5678"
+                   class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-navy/80 focus:outline-none focus:ring-2 focus:ring-teal/40">
+            @error('phone') <p class="text-signal-red text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+        {{-- 비밀번호 --}}
+        <div>
+            <label for="password" class="block text-sm font-semibold text-deepgreen mb-1.5">비밀번호 <span class="text-signal-red">*</span></label>
+            <input id="password" name="password" type="password" required autocomplete="new-password"
+                   class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-navy/80 focus:outline-none focus:ring-2 focus:ring-teal/40">
+            @error('password') <p class="text-signal-red text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}">
-                {{ __('Already registered?') }}
-            </a>
-
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
-            </x-primary-button>
+        {{-- 비밀번호 확인 --}}
+        <div>
+            <label for="password_confirmation" class="block text-sm font-semibold text-deepgreen mb-1.5">비밀번호 확인 <span class="text-signal-red">*</span></label>
+            <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"
+                   class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-navy/80 focus:outline-none focus:ring-2 focus:ring-teal/40">
         </div>
+
+        {{-- 동의 --}}
+        <div class="pt-2 space-y-2">
+            <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" name="terms" value="1" required class="h-4 w-4 accent-[#1F4D3F]">
+                <span class="text-sm text-navy/70"><b class="text-deepgreen">[필수]</b> 이용약관 및 개인정보 수집·이용에 동의합니다</span>
+            </label>
+            @error('terms') <p class="text-signal-red text-xs">{{ $message }}</p> @enderror
+            <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" name="marketing" value="1" {{ old('marketing') ? 'checked' : '' }} class="h-4 w-4 accent-[#1F4D3F]">
+                <span class="text-sm text-navy/70"><span class="text-navy/40">[선택]</span> 마케팅 정보 수신에 동의합니다</span>
+            </label>
+        </div>
+
+        <button type="submit" class="w-full rounded-xl bg-deepgreen text-cream py-3.5 font-bold shadow-lg hover:brightness-110 transition">가입하기</button>
     </form>
+
+    <p class="mt-6 text-center text-sm text-gray-600">
+        이미 회원이신가요?
+        <a href="{{ route('login') }}" class="font-semibold text-teal hover:underline">로그인</a>
+    </p>
 </x-guest-layout>
