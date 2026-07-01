@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CatalogController;
@@ -59,6 +60,14 @@ Route::match(['get','post'], '/payment/return', [PaymentController::class, 'retu
 Route::middleware('auth')->group(function () {
     Route::get('/payment/complete/{order}', [PaymentController::class, 'complete'])->name('payment.complete');
     Route::get('/payment/fail', [PaymentController::class, 'fail'])->name('payment.fail');
+});
+
+// 관리자 (임시 — 인증 가드 없음, 직접 URL 접근. ⚠️ 실서비스 전 auth 미들웨어 필수)
+Route::prefix('admin')->name('admin.')->controller(AdminController::class)->group(function () {
+    Route::get('/', 'dashboard')->name('dashboard');
+    Route::get('/members', 'members')->name('members');
+    Route::get('/orders', 'orders')->name('orders');
+    Route::get('/tests', 'tests')->name('tests');
 });
 
 require __DIR__.'/auth.php';
