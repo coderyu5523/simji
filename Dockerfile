@@ -23,8 +23,9 @@ WORKDIR /app
 COPY . .
 COPY --from=assets /app/public/build ./public/build
 
-# PHP 의존성 (운영용, 스크립트 미실행 — 패키지 매니페스트는 런타임에 자동 생성)
-RUN composer install --no-dev --no-scripts --optimize-autoloader --no-interaction --prefer-dist
+# PHP 의존성 설치. dev 포함 — 시더(샘플 데이터)가 fakerphp/faker(require-dev)를 사용하므로.
+# 내부 검토용 프리뷰라 시딩이 필수. 실서비스 배포 땐 --no-dev + 시더 미실행으로 전환.
+RUN composer install --no-scripts --optimize-autoloader --no-interaction --prefer-dist
 
 # 쓰기 디렉터리 + SQLite 파일
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache database \
