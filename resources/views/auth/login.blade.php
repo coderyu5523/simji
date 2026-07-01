@@ -45,9 +45,8 @@
         </div>
     </form>
 
-    <div class="mt-6 space-y-3">
+    <div class="mt-6">
         <a href="{{ route('kakao.redirect') }}" class="block text-center rounded-lg bg-[#FEE500] py-2 font-semibold text-[#3C1E1E]">카카오로 시작하기</a>
-        <a href="{{ route('guest.start') }}" class="block text-center rounded-lg border border-teal py-2 text-teal">게스트로 샘플 체험</a>
     </div>
 
     <p class="mt-6 text-center text-sm text-gray-600">
