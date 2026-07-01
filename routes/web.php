@@ -24,14 +24,8 @@ Route::get('/coaching', [CoachingController::class, 'index'])->name('coaching');
 Route::get('/institution',  fn () => view('institution'))->name('institution');   // 기관·단체 도입
 Route::get('/report-sample',fn () => view('report-sample'))->name('report.sample'); // 리포트 샘플
 Route::get('/experts',      fn () => view('experts'))->name('experts');            // 전문가·파트너
-
-// 준비중(coming soon) 정적 페이지 — Phase 2에서 실제 구현 예정
-foreach ([
-    'about'   => ['/about',   '심지 소개'],
-    'support' => ['/support', '고객센터'],
-] as $name => [$path, $heading]) {
-    Route::get($path, fn () => view('coming-soon', ['heading' => $heading]))->name($name);
-}
+Route::get('/about',        fn () => view('about'))->name('about');                // 심지 소개
+Route::get('/support',      fn () => view('support'))->name('support');            // 고객센터
 
 Route::controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
