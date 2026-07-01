@@ -20,14 +20,15 @@ Route::get('/tests/{code}', [CatalogController::class, 'show'])->name('catalog.s
 Route::get('/my', [MyTestController::class, 'index'])->name('my.index');
 Route::get('/coaching', [CoachingController::class, 'index'])->name('coaching');
 
-// 기관·단체 도입 페이지 (목업 — 백엔드 미연결, 화면·목데이터만)
-Route::get('/institution', fn () => view('institution'))->name('institution');
+// 목업 페이지 (백엔드 미연결, 화면·목데이터만) — Phase 2에서 실제 구현 예정
+Route::get('/institution',  fn () => view('institution'))->name('institution');   // 기관·단체 도입
+Route::get('/report-sample',fn () => view('report-sample'))->name('report.sample'); // 리포트 샘플
+Route::get('/experts',      fn () => view('experts'))->name('experts');            // 전문가·파트너
 
 // 준비중(coming soon) 정적 페이지 — Phase 2에서 실제 구현 예정
 foreach ([
-    'about'         => ['/about',         '심지 소개'],
-    'report.sample' => ['/report-sample', '리포트 샘플'],
-    'support'       => ['/support',       '고객센터'],
+    'about'   => ['/about',   '심지 소개'],
+    'support' => ['/support', '고객센터'],
 ] as $name => [$path, $heading]) {
     Route::get($path, fn () => view('coming-soon', ['heading' => $heading]))->name($name);
 }
