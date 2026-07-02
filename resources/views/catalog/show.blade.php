@@ -35,59 +35,59 @@
         </div>
       </div>
 
-      <div class="mt-8">
-        @auth
-          @if(!$product || $hasVoucher)
-            {{-- 무료 검사거나, 유료 검사인데 검사권 보유 → 바로 응시 --}}
-            <div class="flex flex-wrap gap-3">
-              <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
-              <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
-            </div>
-            @if($product)
-              <p class="mt-3 text-sm text-navy/50">응시 시 보유 검사권 1개가 차감됩니다.</p>
-            @endif
-          @else
-            {{-- 유료 검사인데 검사권 없음 → 검사권 관리로 안내 (가격/단건구매 없음, 검사권 차감 모델) --}}
-            <div class="rounded-2xl bg-mint/20 p-5 ring-1 ring-black/5">
-              <p class="font-bold text-deepgreen">검사권으로 응시하는 검사예요</p>
-              <p class="text-sm text-navy/60 mt-1">보유한 검사권이 없습니다. 검사권을 발급해 직접 응시하거나, 링크로 다른 사람에게 전달할 수 있어요.</p>
-              <div class="mt-4 flex flex-wrap gap-3">
-                <a href="{{ route('my.index') }}" class="rounded-xl bg-deepgreen text-cream px-6 py-3 font-bold shadow-lg hover:brightness-110 transition">검사권 관리로 이동</a>
-                <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
-              </div>
-            </div>
-          @endif
-        @else
-          <div class="flex flex-wrap gap-3">
-            <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
-            <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
+      {{-- 두 가지 이용 방법을 한눈에: 직접 응시 | 여러 명에게 발급 --}}
+      <div class="mt-8 grid md:grid-cols-2 gap-4">
+
+        {{-- ① 직접 응시 --}}
+        <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-deepgreen/10 text-deepgreen font-bold">1</span>
+            <h2 class="font-bold text-deepgreen">직접 응시하기</h2>
           </div>
-          @if($product)
-            <p class="mt-3 text-sm text-navy/50">검사권으로 응시하는 검사입니다. 로그인 후 이용해 주세요.</p>
-          @endif
-        @endauth
+          <p class="text-sm text-navy/60 mt-2 flex-1">내가 바로 검사를 받고 신호등 결과를 확인해요.</p>
+          <div class="mt-4">
+            @auth
+              @if(!$product || $hasVoucher)
+                <a href="{{ route('assessment.consent', $test->code) }}" class="block text-center rounded-xl bg-deepgreen text-cream px-6 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+                @if($product)<p class="mt-2 text-xs text-navy/40">보유 검사권 1개가 차감됩니다.</p>@endif
+              @else
+                <div class="rounded-xl bg-black/5 text-navy/50 px-4 py-3.5 text-sm text-center">보유한 검사권이 없어요.<br>오른쪽에서 발급 후 이용해 주세요.</div>
+              @endif
+            @else
+              <a href="{{ route('login') }}" class="block text-center rounded-xl bg-deepgreen text-cream px-6 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
+            @endauth
+          </div>
+        </div>
+
+        {{-- ② 여러 명에게 발급 --}}
+        <div class="rounded-3xl bg-mint/20 p-6 shadow-sm ring-1 ring-black/5 flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal/15 text-teal font-bold">2</span>
+            <h2 class="font-bold text-deepgreen">여러 명에게 발급하기</h2>
+          </div>
+          <p class="text-sm text-navy/60 mt-2 flex-1">응시 링크를 만들어 전달해요. 받은 분은 로그인 없이 응시하고, 결과는 <a href="{{ route('my.index') }}" class="text-teal font-semibold">내 검사함</a>에서 관리.</p>
+          <div class="mt-4">
+            @auth
+              <form method="POST" action="{{ route('my.issue') }}" class="flex flex-wrap gap-2 items-end">
+                @csrf
+                <input type="hidden" name="test_id" value="{{ $test->id }}">
+                <div class="w-24">
+                  <label class="block text-xs font-semibold text-navy/60 mb-1.5">수량</label>
+                  <input type="number" name="qty" value="1" min="1" max="100" required class="w-full rounded-xl border border-black/10 px-3 py-3 text-sm bg-white focus:border-teal focus:ring-teal">
+                </div>
+                <button class="flex-1 rounded-xl bg-teal text-white px-5 py-3 font-bold shadow-lg hover:brightness-110 transition whitespace-nowrap">검사권 발급</button>
+              </form>
+              <button type="button" onclick="alert('준비 중인 기능입니다.')" class="mt-2 w-full rounded-xl border border-teal/60 text-teal px-4 py-2.5 text-sm font-semibold hover:bg-mint/30 transition">여러 명 한 번에 (엑셀) <span class="text-xs align-top">준비중</span></button>
+              @if($product)<p class="mt-2 text-xs text-navy/40">유료 검사는 보유 검사권에서 차감됩니다.</p>@endif
+            @else
+              <a href="{{ route('login') }}" class="block text-center rounded-xl border border-teal text-teal px-6 py-3.5 font-bold hover:bg-mint/30 transition">로그인하고 발급하기</a>
+            @endauth
+          </div>
+        </div>
       </div>
 
-      {{-- 이 검사 발급하기 (여러 명에게 링크 전달) --}}
-      <div class="mt-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-        <h2 class="font-bold text-deepgreen">이 검사, 여러 명에게 발급하기</h2>
-        <p class="text-sm text-navy/60 mt-1">발급하면 <b>응시 링크</b>가 생성됩니다. 링크 받은 분은 로그인 없이 응시하고, 결과는 <a href="{{ route('my.index') }}" class="text-teal font-semibold">내 검사함</a>에서 관리해요.</p>
-
-        @auth
-          <form method="POST" action="{{ route('my.issue') }}" class="mt-4 flex flex-wrap gap-3 items-end">
-            @csrf
-            <input type="hidden" name="test_id" value="{{ $test->id }}">
-            <div class="w-28">
-              <label class="block text-xs font-semibold text-navy/60 mb-1.5">수량</label>
-              <input type="number" name="qty" value="1" min="1" max="100" required class="w-full rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-teal focus:ring-teal">
-            </div>
-            <button class="rounded-xl bg-teal text-white px-6 py-3 font-bold shadow-lg hover:brightness-110 transition">검사권 발급</button>
-            <button type="button" onclick="alert('준비 중인 기능입니다.')" class="rounded-xl border border-teal text-teal px-5 py-3 text-sm font-semibold hover:bg-mint/20 transition">여러 명 한 번에 (엑셀) <span class="text-xs align-top">준비중</span></button>
-          </form>
-          @if($product)<p class="mt-3 text-xs text-navy/40">유료 검사는 보유 검사권에서 차감됩니다. 무료 검사는 바로 발급됩니다.</p>@endif
-        @else
-          <a href="{{ route('login') }}" class="inline-block mt-4 rounded-xl border border-teal text-teal px-6 py-3 font-semibold hover:bg-mint/20 transition">로그인하고 발급하기</a>
-        @endauth
+      <div class="mt-5">
+        <a href="{{ route('catalog.room', $test->room) }}" class="text-sm text-navy/50 hover:text-teal transition">← 이 방의 다른 검사 보기</a>
       </div>
     </div>
   </div>
