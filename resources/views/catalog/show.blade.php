@@ -31,21 +31,37 @@
         </div>
       </div>
 
-      <div class="mt-8 flex flex-wrap gap-3">
-        @if($product && !$hasVoucher)
-          @auth
-            <a href="{{ route('checkout.show', $product->id) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">{{ number_format($product->price) }}원 구매하고 응시</a>
+      <div class="mt-8">
+        @auth
+          @if(!$product || $hasVoucher)
+            {{-- 무료 검사거나, 유료 검사인데 검사권 보유 → 바로 응시 --}}
+            <div class="flex flex-wrap gap-3">
+              <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+              <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
+            </div>
+            @if($product)
+              <p class="mt-3 text-sm text-navy/50">응시 시 보유 검사권 1개가 차감됩니다.</p>
+            @endif
           @else
-            <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">{{ number_format($product->price) }}원 로그인하고 구매</a>
-          @endauth
+            {{-- 유료 검사인데 검사권 없음 → 검사권 관리로 안내 (가격/단건구매 없음, 검사권 차감 모델) --}}
+            <div class="rounded-2xl bg-mint/20 p-5 ring-1 ring-black/5">
+              <p class="font-bold text-deepgreen">검사권으로 응시하는 검사예요</p>
+              <p class="text-sm text-navy/60 mt-1">보유한 검사권이 없습니다. 검사권을 발급해 직접 응시하거나, 링크로 다른 사람에게 전달할 수 있어요.</p>
+              <div class="mt-4 flex flex-wrap gap-3">
+                <a href="{{ route('my.index') }}" class="rounded-xl bg-deepgreen text-cream px-6 py-3 font-bold shadow-lg hover:brightness-110 transition">검사권 관리로 이동</a>
+                <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
+              </div>
+            </div>
+          @endif
         @else
-          @auth
-            <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
-          @else
+          <div class="flex flex-wrap gap-3">
             <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
-          @endauth
-        @endif
-        <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
+            <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
+          </div>
+          @if($product)
+            <p class="mt-3 text-sm text-navy/50">검사권으로 응시하는 검사입니다. 로그인 후 이용해 주세요.</p>
+          @endif
+        @endauth
       </div>
     </div>
   </div>
