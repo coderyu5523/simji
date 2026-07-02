@@ -29,6 +29,74 @@ class VoucherService
         });
     }
 
+    /**
+     * 검사권을 대상자 전달용 링크로 발급한다.
+     * - 유료 검사: 보유 active·미발급(access_token 없음) 검사권에 토큰 부여. 부족하면 예외.
+     * - 무료 검사: qty개 새 검사권 생성(source=issued_free) + 토큰.
+     * @return \Illuminate\Support\Collection<int,Voucher>
+     */
+    public function issueLinks(User $user, Test $test, int $qty)
+    {
+        $qty = max(1, $qty);
+
+        return DB::transaction(function () use ($user, $test, $qty) {
+            $issued = collect();
+
+            if ($test->isPaid()) {
+                $available = $this->activeQuery($user, $test)
+                    ->whereNull('access_token')
+                    ->orderBy('issued_at')->orderBy('id')
+                    ->lockForUpdate()->take($qty)->get();
+
+                if ($available->count() < $qty) {
+                    throw new \RuntimeException("보유 검사권이 부족합니다. (필요 {$qty}개, 보유 {$available->count()}개)");
+                }
+
+                foreach ($available as $voucher) {
+                    $voucher->update([
+                        'access_token' => $this->newToken(),
+                        'result_visible' => true,
+                        'assigned_at' => now(),
+                    ]);
+                    $issued->push($voucher);
+                }
+            } else {
+                for ($i = 0; $i < $qty; $i++) {
+                    $issued->push(Voucher::create([
+                        'user_id' => $user->id,
+                        'test_id' => $test->id,
+                        'source' => 'issued_free',
+                        'status' => 'active',
+                        'access_token' => $this->newToken(),
+                        'result_visible' => true,
+                        'issued_at' => now(),
+                        'assigned_at' => now(),
+                    ]));
+                }
+            }
+
+            return $issued;
+        });
+    }
+
+    /** 링크 응시 제출 시 해당 검사권을 소비 처리한다. */
+    public function markUsedByAttempt(Voucher $voucher, TestAttempt $attempt): void
+    {
+        $voucher->update([
+            'status' => 'used',
+            'used_at' => now(),
+            'used_attempt_id' => $attempt->id,
+        ]);
+    }
+
+    private function newToken(): string
+    {
+        do {
+            $token = \Illuminate\Support\Str::random(40);
+        } while (Voucher::where('access_token', $token)->exists());
+        return $token;
+    }
+
     public function firstActive(User $user, Test $test): ?Voucher
     {
         return $this->activeQuery($user, $test)

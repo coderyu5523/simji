@@ -12,7 +12,7 @@
     </div>
 
     <div class="max-w-2xl mx-auto px-4 py-8">
-      <form method="POST" action="{{ route('assessment.submit', [$test->code, $attempt->id]) }}" id="qform" class="space-y-5">
+      <form method="POST" action="{{ $submitUrl ?? route('assessment.submit', [$test->code, $attempt->id]) }}" id="qform" class="space-y-5">
         @csrf
         @foreach($test->items as $item)
           <fieldset class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5" data-q>

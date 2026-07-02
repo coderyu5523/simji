@@ -11,6 +11,7 @@ use App\Http\Controllers\ResultController;
 use App\Http\Controllers\MyTestController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\LinkController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -40,6 +41,14 @@ Route::middleware('auth')->controller(AssessmentController::class)->prefix('asse
 
 Route::get('/result/{attempt}', [ResultController::class, 'show'])->name('result.show');
 
+// 검사권 링크 응시 (로그인 불필요 — 발급자가 전달한 링크로 대상자가 직접 응시)
+Route::controller(LinkController::class)->prefix('t/{token}')->name('link.')->group(function () {
+    Route::get('/', 'landing')->name('landing');
+    Route::post('start', 'start')->name('start');
+    Route::get('take/{attempt}', 'take')->name('take');
+    Route::post('take/{attempt}', 'submit')->name('submit');
+});
+
 Route::get('/guest/start', function () {
     if (!session('guest_token')) session(['guest_token' => (string) \Illuminate\Support\Str::uuid()]);
     return redirect()->route('catalog.index');
@@ -52,6 +61,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::post('/my/issue', [MyTestController::class, 'issue'])->name('my.issue');
+    Route::post('/my/vouchers/{voucher}/visibility', [MyTestController::class, 'toggleVisibility'])->name('my.voucher.visibility');
     Route::get('/checkout/{product}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });
