@@ -17,8 +17,7 @@ class MyTestController extends Controller
         else $query->where('guest_token', $request->session()->get('guest_token'));
 
         $issued = collect();
-        $vouchers = collect();
-        $issuableTests = collect();
+        $ownedCount = 0;
 
         if (auth()->check()) {
             // 발급 명부: 내가 링크로 발급한 검사권 + 응시 결과
@@ -28,30 +27,18 @@ class MyTestController extends Controller
                 ->latest('assigned_at')
                 ->get();
 
-            // 보유 검사권(미발급) — 유료 발급 가능 수량 계산용
-            $vouchers = Voucher::with('test')
-                ->where('user_id', auth()->id())
+            // 보유 검사권(미발급) 수 — 발급은 심리검사 상세에서 진행
+            $ownedCount = Voucher::where('user_id', auth()->id())
                 ->where('status', 'active')
                 ->whereNull('access_token')
                 ->where(function ($q) { $q->whereNull('expires_at')->orWhere('expires_at', '>', now()); })
-                ->orderBy('issued_at')
-                ->get();
-
-            // 발급 가능한 검사 목록 (무료=항상, 유료=보유 검사권 수)
-            $available = $vouchers->groupBy('test_id')->map->count();
-            $issuableTests = Test::where('status', 'active')->orderBy('title_easy')->get()
-                ->map(function ($t) use ($available) {
-                    $t->is_paid = $t->isPaid();
-                    $t->available_credits = $available[$t->id] ?? 0;
-                    return $t;
-                });
+                ->count();
         }
 
         return view('my.index', [
             'attempts' => $query->get(),
-            'vouchers' => $vouchers,
             'issued' => $issued,
-            'issuableTests' => $issuableTests,
+            'ownedCount' => $ownedCount,
         ]);
     }
 
@@ -69,7 +56,8 @@ class MyTestController extends Controller
             return back()->withErrors(['issue' => $e->getMessage()])->withInput();
         }
 
-        return back()->with('status', "{$test->title_easy} 검사권 {$data['qty']}개를 발급했습니다.");
+        // 발급 후 내 검사함(명부)으로 이동 — 생성된 링크를 바로 복사·관리
+        return redirect()->route('my.index')->with('status', "{$test->title_easy} 검사권 {$data['qty']}개를 발급했습니다. 아래에서 링크를 복사해 전달하세요.");
     }
 
     public function toggleVisibility(Request $request, Voucher $voucher)
