@@ -80,9 +80,60 @@
         </div>
       </div>
 
-      <div class="mt-5">
+      {{-- 검사 소개 (상세 이미지 + 결과 예시 그래프) --}}
+      <div class="mt-12 space-y-6">
+        <h2 class="text-xl font-extrabold text-deepgreen">검사 소개</h2>
+
+        {{-- 상세 소개 이미지 (현업 이미지 예정 — 자리 표시) --}}
+        <div class="grid sm:grid-cols-3 gap-4">
+          @foreach(['이 검사는 무엇을 보나요','어떻게 진행되나요','결과는 이렇게 나와요'] as $cap)
+            <div class="rounded-2xl bg-white ring-1 ring-black/5 overflow-hidden">
+              <div class="aspect-[4/3] bg-gradient-to-br from-mint/40 to-cream flex flex-col items-center justify-center gap-2 text-navy/30">
+                <svg viewBox="0 0 24 24" class="h-9 w-9" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                <span class="text-xs">이미지 영역</span>
+              </div>
+              <p class="px-4 py-3 text-sm text-navy/60">{{ $cap }}</p>
+            </div>
+          @endforeach
+        </div>
+        <p class="text-xs text-navy/40">※ 소개 이미지·설명 문구는 준비되는 대로 교체됩니다.</p>
+
+        {{-- 결과 예시 그래프 --}}
+        @if(!empty($test->areas))
+          @php
+            $palette = [72, 45, 63, 38, 80, 55, 48, 67];
+            $introData = [];
+            foreach (array_values($test->areas) as $i => $a) { $introData[] = $palette[$i % count($palette)]; }
+          @endphp
+          <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-deepgreen">결과 예시 — 영역별 점수</h3>
+              <span class="rounded-full bg-mint text-deepgreen text-xs font-bold px-2.5 py-0.5">예시</span>
+            </div>
+            <canvas id="introChart" height="140"></canvas>
+            <p class="text-xs text-navy/40 mt-3">이 검사의 평가영역({{ implode(' · ', $test->areas) }})을 신호등으로 표시한 예시입니다.</p>
+          </div>
+        @endif
+      </div>
+
+      <div class="mt-8">
         <a href="{{ route('catalog.room', $test->room) }}" class="text-sm text-navy/50 hover:text-teal transition">← 이 방의 다른 검사 보기</a>
       </div>
     </div>
   </div>
+
+  @if(!empty($test->areas))
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script>
+      (function () {
+        const data = @json($introData);
+        const colors = data.map(v => v >= 70 ? '#E0584E' : (v >= 50 ? '#F2B705' : '#3FAE5A'));
+        new Chart(document.getElementById('introChart'), {
+          type: 'bar',
+          data: { labels: @json($test->areas), datasets: [{ data, backgroundColor: colors, borderRadius: 6 }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } } }
+        });
+      })();
+    </script>
+  @endif
 </x-layouts.app>
