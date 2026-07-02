@@ -39,7 +39,11 @@
             <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">{{ number_format($product->price) }}원 로그인하고 구매</a>
           @endauth
         @else
-          <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+          @auth
+            <a href="{{ route('assessment.consent', $test->code) }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">검사 시작</a>
+          @else
+            <a href="{{ route('login') }}" class="rounded-xl bg-deepgreen text-cream px-8 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
+          @endauth
         @endif
         <a href="{{ route('catalog.room', $test->room) }}" class="rounded-xl border border-teal text-teal px-6 py-3.5 font-semibold hover:bg-mint/30 transition">다른 검사 보기</a>
       </div>

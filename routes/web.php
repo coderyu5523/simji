@@ -28,7 +28,8 @@ Route::get('/experts',      fn () => view('experts'))->name('experts');         
 Route::get('/about',        fn () => view('about'))->name('about');                // 심지 소개
 Route::get('/support',      fn () => view('support'))->name('support');            // 고객센터
 
-Route::controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
+// 검사 진행은 무료·유료 구분 없이 로그인 필수 (비회원 응시 불가)
+Route::middleware('auth')->controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
     Route::post('agree', 'agree')->name('agree');
     Route::get('intro', 'intro')->name('intro');
