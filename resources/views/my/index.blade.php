@@ -52,6 +52,47 @@
         <p class="mt-3 text-xs text-navy/40">유료 검사는 보유 검사권에서 차감됩니다. 무료 검사는 바로 발급됩니다.</p>
       </div>
 
+      {{-- 대량 발급 (엑셀) — 화면만, 실제 기능은 정식 단계에 구현 --}}
+      <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+        <div class="flex items-center gap-2 mb-1">
+          <h2 class="font-bold text-deepgreen">대량 발급 <span class="text-navy/40 font-normal text-sm">(엑셀 업로드)</span></h2>
+          <span class="rounded-full bg-signal-yellow/20 text-signal-yellow text-xs font-bold px-2.5 py-0.5">준비 중</span>
+        </div>
+        <p class="text-sm text-navy/60">기관에서 여러 명에게 한 번에 발급할 때 사용합니다. 엑셀에 <b>이름·전화번호</b>만 넣어 업로드하면 명단 수만큼 검사권이 만들어지고, 각자에게 문자로 링크를 보낼 수 있어요. <span class="text-navy/40">(문자 발송은 추후 제공)</span></p>
+
+        <div class="mt-4 flex flex-wrap gap-3 items-end">
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs font-semibold text-navy/60 mb-1.5">검사 선택</label>
+            <select disabled class="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-sm text-navy/40">
+              <option>검사를 선택하세요</option>
+            </select>
+          </div>
+          <button type="button" onclick="alert('준비 중인 기능입니다.')" class="rounded-xl border border-teal text-teal px-4 py-3 text-sm font-semibold hover:bg-mint/20 transition">엑셀 양식 다운로드</button>
+          <button type="button" onclick="alert('준비 중인 기능입니다.')" class="rounded-xl bg-black/5 text-navy/50 px-5 py-3 text-sm font-bold hover:bg-black/10 transition">엑셀 파일 업로드</button>
+        </div>
+
+        {{-- 업로드 결과 미리보기 (예시 화면) --}}
+        <div class="mt-5">
+          <p class="text-xs text-navy/40 mb-2">업로드하면 이렇게 명단이 검사권으로 만들어집니다 <span class="italic">(예시 화면)</span></p>
+          <div class="overflow-hidden rounded-2xl ring-1 ring-black/5">
+            <table class="w-full text-sm">
+              <thead class="bg-cream text-navy/50 text-xs">
+                <tr><th class="text-left px-4 py-2 font-semibold">이름</th><th class="text-left px-4 py-2 font-semibold">전화번호</th><th class="text-left px-4 py-2 font-semibold">상태</th></tr>
+              </thead>
+              <tbody class="divide-y divide-black/5 bg-white text-navy/60">
+                @foreach([['김○○','010-1234-****'],['이○○','010-5678-****'],['박○○','010-9012-****']] as [$nm,$ph])
+                  <tr>
+                    <td class="px-4 py-2.5">{{ $nm }}</td>
+                    <td class="px-4 py-2.5">{{ $ph }}</td>
+                    <td class="px-4 py-2.5"><span class="rounded-full bg-signal-yellow/20 text-signal-yellow text-xs font-semibold px-2 py-0.5">발급 대기</span></td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {{-- 발급 명부 --}}
       <div>
         <h2 class="font-bold text-deepgreen mb-4">발급한 검사권 <span class="text-sm text-navy/40 font-normal">({{ $issued->count() }})</span></h2>
