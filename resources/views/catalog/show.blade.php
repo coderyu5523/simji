@@ -56,25 +56,25 @@
           </div>
         </div>
 
-        {{-- ② 여러 명에게 발급 (진한 컬러로 활성 강조) --}}
-        <div class="rounded-3xl bg-gradient-to-br from-teal to-deepgreen text-cream p-6 shadow-lg flex flex-col">
-          <h2 class="font-bold text-white">여러 명에게 발급하기</h2>
-          <p class="text-sm text-cream/80 mt-2 flex-1">응시 링크를 만들어 전달해요. 받은 분은 로그인 없이 응시하고, 결과는 <a href="{{ route('my.index') }}" class="text-mint font-semibold underline underline-offset-2">내 검사함</a>에서 관리.</p>
+        {{-- ② 여러 명에게 발급 (직접 응시 카드와 동일 톤) --}}
+        <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col">
+          <h2 class="font-bold text-deepgreen">여러 명에게 발급하기</h2>
+          <p class="text-sm text-navy/60 mt-2 flex-1">응시 링크를 만들어 전달해요. 받은 분은 로그인 없이 응시하고, 결과는 <a href="{{ route('my.index') }}" class="text-teal font-semibold">내 검사함</a>에서 관리.</p>
           <div class="mt-4">
             @auth
               <form method="POST" action="{{ route('my.issue') }}" class="flex flex-wrap gap-2 items-end">
                 @csrf
                 <input type="hidden" name="test_id" value="{{ $test->id }}">
                 <div class="w-24">
-                  <label class="block text-xs font-semibold text-cream/70 mb-1.5">수량</label>
-                  <input type="number" name="qty" value="1" min="1" max="100" required class="w-full rounded-xl border border-white/20 px-3 py-3 text-sm text-navy bg-white focus:border-mint focus:ring-mint">
+                  <label class="block text-xs font-semibold text-navy/60 mb-1.5">수량</label>
+                  <input type="number" name="qty" value="1" min="1" max="100" required class="w-full rounded-xl border border-black/10 px-3 py-3 text-sm bg-white focus:border-teal focus:ring-teal">
                 </div>
-                <button class="flex-1 rounded-xl bg-mint text-deepgreen px-5 py-3 font-bold shadow-lg hover:brightness-105 transition whitespace-nowrap">검사권 발급</button>
+                <button class="flex-1 rounded-xl bg-teal text-white px-5 py-3 font-bold shadow-lg hover:brightness-110 transition whitespace-nowrap">검사권 발급</button>
               </form>
-              <button type="button" onclick="alert('준비 중인 기능입니다.')" class="mt-2 w-full rounded-xl border border-cream/40 text-cream px-4 py-2.5 text-sm font-semibold hover:bg-cream/10 transition">여러 명 한 번에 (엑셀) <span class="text-xs align-top">준비중</span></button>
-              @if($product)<p class="mt-2 text-xs text-cream/60">유료 검사는 보유 검사권에서 차감됩니다.</p>@endif
+              <button type="button" onclick="alert('준비 중인 기능입니다.')" class="mt-2 w-full rounded-xl border border-teal/50 text-teal px-4 py-2.5 text-sm font-semibold hover:bg-mint/20 transition">여러 명 한 번에 (엑셀) <span class="text-xs align-top">준비중</span></button>
+              @if($product)<p class="mt-2 text-xs text-navy/40">유료 검사는 보유 검사권에서 차감됩니다.</p>@endif
             @else
-              <a href="{{ route('login') }}" class="block text-center rounded-xl bg-mint text-deepgreen px-6 py-3.5 font-bold hover:brightness-105 transition">로그인하고 발급하기</a>
+              <a href="{{ route('login') }}" class="block text-center rounded-xl bg-teal text-white px-6 py-3.5 font-bold hover:brightness-110 transition">로그인하고 발급하기</a>
             @endauth
           </div>
         </div>
