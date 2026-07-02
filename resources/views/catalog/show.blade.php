@@ -40,10 +40,7 @@
 
         {{-- ① 직접 응시 --}}
         <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col">
-          <div class="flex items-center gap-2">
-            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-deepgreen/10 text-deepgreen font-bold">1</span>
-            <h2 class="font-bold text-deepgreen">직접 응시하기</h2>
-          </div>
+          <h2 class="font-bold text-deepgreen">직접 응시하기</h2>
           <p class="text-sm text-navy/60 mt-2 flex-1">내가 바로 검사를 받고 신호등 결과를 확인해요.</p>
           <div class="mt-4">
             @auth
@@ -61,10 +58,7 @@
 
         {{-- ② 여러 명에게 발급 --}}
         <div class="rounded-3xl bg-mint/20 p-6 shadow-sm ring-1 ring-black/5 flex flex-col">
-          <div class="flex items-center gap-2">
-            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal/15 text-teal font-bold">2</span>
-            <h2 class="font-bold text-deepgreen">여러 명에게 발급하기</h2>
-          </div>
+          <h2 class="font-bold text-deepgreen">여러 명에게 발급하기</h2>
           <p class="text-sm text-navy/60 mt-2 flex-1">응시 링크를 만들어 전달해요. 받은 분은 로그인 없이 응시하고, 결과는 <a href="{{ route('my.index') }}" class="text-teal font-semibold">내 검사함</a>에서 관리.</p>
           <div class="mt-4">
             @auth
