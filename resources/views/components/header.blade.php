@@ -1,7 +1,7 @@
 @php
   $menu = [
-    ['label' => '심지소개',  'route' => 'about'],
     ['label' => '심리검사',  'route' => 'catalog.index'],
+    ['label' => '심지소개',  'route' => 'about'],
     ['label' => '강의·코칭', 'route' => 'coaching'],
     ['label' => '기관·단체', 'route' => 'institution'],
     ['label' => '리포트샘플','route' => 'report.sample'],
