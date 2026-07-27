@@ -58,6 +58,15 @@ test('tie_break 우선순위가 DEP 9 … FUT 1 이다', function () {
     expect($tb['FUT'])->toBe(1);
 });
 
+test('총점 포함 요인들의 tie_break 값이 서로 유일하다 (우선순위 결정성 보장)', function () {
+    $tieBreaks = collect($this->rules['factors'])
+        ->filter(fn ($f) => $f['included_in_overall'])
+        ->map(fn ($f) => $f['tie_break'])
+        ->values();
+
+    expect($tieBreaks->unique())->toHaveCount($tieBreaks->count());
+});
+
 test('솔루션 10종에 dedupe_group 이 있다', function () {
     expect($this->rules['solutions'])->toHaveCount(10);
     foreach ($this->rules['solutions'] as $code => $sol) {

@@ -72,3 +72,32 @@ test('FAM05=3 시나리오는 E3 → C3 이다 (T12)', function () {
 test('SAF03=1 시나리오는 S1 → C1 이다 (T08)', function () {
     expect($this->classifier->final('G0', 'S1', 'E0', $this->rules))->toBe('C1');
 });
+
+test('UNSCORABLE 요인은 red/yellow 카운트에서 제외한다', function () {
+    $factors = factorsWithBands(['DEP' => 'RED']);
+    $factors['DEP'] = [
+        'raw' => null, 'answered_count' => 2, 'risk_index' => null,
+        'band' => null, 'score_status' => 'UNSCORABLE',
+    ];
+
+    $r = $this->classifier->general($factors, $this->rules);
+    expect($r['red_count'])->toBe(0);
+    expect($r['yellow_count'])->toBe(0);
+    expect($r['code'])->toBe('G0');
+});
+
+test('case_codes.general 에 포괄 규칙(when=>null)이 없으면 예외를 던진다', function () {
+    $rules = $this->rules;
+    array_pop($rules['case_codes']['general']); // G0 catch-all 제거
+
+    expect(fn () => $this->classifier->general(factorsWithBands([]), $rules))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('case_codes.escalation 에 해당 등급 매핑이 없으면 예외를 던진다', function () {
+    $rules = $this->rules;
+    unset($rules['case_codes']['escalation'][1]);
+
+    expect(fn () => $this->classifier->final('G0', 'S1', 'E0', $rules))
+        ->toThrow(InvalidArgumentException::class);
+});

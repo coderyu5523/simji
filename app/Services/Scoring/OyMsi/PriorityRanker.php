@@ -36,6 +36,7 @@ class PriorityRanker
 
         $top = array_slice($rows, 0, $limit);
         foreach ($top as $i => &$row) $row['rank'] = $i + 1;
+        unset($row);
 
         return $top;
     }
