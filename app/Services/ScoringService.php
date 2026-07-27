@@ -4,6 +4,7 @@ namespace App\Services;
 use App\Models\Test;
 use App\Models\TestAttempt;
 use App\Models\TestResult;
+use App\Services\Scoring\OyMsi\OyMsiScoringEngine;
 use App\Services\Scoring\ScoringEngine;
 use App\Services\Scoring\SignalScoringEngine;
 use InvalidArgumentException;
@@ -12,7 +13,7 @@ class ScoringService
 {
     public const ENGINES = [
         'signal' => SignalScoringEngine::class,
-        // 'oy_msi' => OyMsiScoringEngine::class,   ← Task 9 에서 활성화
+        'oy_msi' => OyMsiScoringEngine::class,
     ];
 
     public function engineFor(Test $test): ScoringEngine
