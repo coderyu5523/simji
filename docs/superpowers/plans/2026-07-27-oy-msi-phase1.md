@@ -1521,8 +1521,13 @@ class SafetyEvaluator
         }
 
         // 007 §5.3 / 003 — 안전문항 응답거부·무응답은 0점 처리 금지, 최소 S1
+        // 폴백 리터럴을 두지 않는다. 키가 없으면 조용히 옛 동작으로 돌아가는 대신 시끄럽게 죽는다
+        // (§1.1 이 안전등급 기준 교체를 예고하므로, 그 작업 중 키 오타가 묻히면 안 된다).
         if ($this->hasMissingSafetyItem($rawByItemCode, $rules)) {
-            return $rules['safety_missing_min_level'] ?? 'S1';
+            return $rules['safety_missing_min_level']
+                ?? throw new \InvalidArgumentException(
+                    'scoring_rules 에 safety_missing_min_level 이 없습니다 — 안전문항 무응답 처리 기준이 정의되지 않았습니다.'
+                );
         }
 
         return 'S0';
