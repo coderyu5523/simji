@@ -14,6 +14,7 @@ test('my page lists my submitted attempts', function () {
 });
 
 test('my page empty state when none', function () {
+    // /my 리디자인(탭 UI) 이후 빈 상태 문구가 바뀌었다: '아직 받은 검사가 없어요' → '아직 직접 응시한 검사가 없어요.'
     $this->withSession(['guest_token'=>'nobody'])->get('/my')
-        ->assertOk()->assertSee('아직 받은 검사가 없어요');
+        ->assertOk()->assertSee('아직 직접 응시한 검사가 없어요');
 });

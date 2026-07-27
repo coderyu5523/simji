@@ -32,8 +32,18 @@ test('start on paid test with voucher consumes it and creates attempt', function
     expect($v->fresh()->status)->toBe('used');
 });
 
-test('free sample test still works for guest (regression)', function () {
+test('free sample test still works for logged-in user (regression)', function () {
+    // 2026-07-02 정책으로 무료·유료 구분 없이 검사 응시는 로그인 필수가 됐다.
+    // 이 테스트는 원래 게스트 기준이었으나 정책 변경에 맞춰 로그인 사용자 여정으로 바꿨다.
     $this->seed(\Database\Seeders\SampleTestSeeder::class);
-    $this->withSession(['guest_token'=>'g-x'])->post('/assessment/KMSIA-SAMPLE/start')->assertRedirect();
-    expect(TestAttempt::where('guest_token','g-x')->count())->toBe(1);
+    $u = User::factory()->create();
+    $this->actingAs($u)->post('/assessment/KMSIA-SAMPLE/start')->assertRedirect();
+    expect(TestAttempt::where('user_id', $u->id)->count())->toBe(1);
+});
+
+test('free sample test blocks guest and redirects to login', function () {
+    // 정책이 코드로 지켜지는지 검증: 비회원은 무료 샘플 검사도 응시할 수 없어야 한다.
+    $this->seed(\Database\Seeders\SampleTestSeeder::class);
+    $this->post('/assessment/KMSIA-SAMPLE/start')->assertRedirect(route('login'));
+    expect(TestAttempt::count())->toBe(0);
 });
