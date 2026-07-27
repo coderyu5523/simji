@@ -31,6 +31,7 @@
 | 8 | 응답거부 | `PREFER_NOT` 1단계 포함(안전 로직의 일부) |
 | 9 | 배치·가격 | 중고등 방(`middle`) 노출 + 기관 링크 직접 진입 / **무료** |
 | 10 | PDF·재검추적 | 1단계 제외 (인쇄만) |
+| 11 | 문항 배치 | 007 고정 혼합배치 유지 + **연속 배치 위반 2건 교정** → `assessment_version 1.0.1` (§1.3) |
 
 ### 1.1 안전등급 — 003 vs 007 충돌과 해소
 
@@ -63,6 +64,34 @@
 
 기존 `tests.requires_guardian_consent`(검사 단위 플래그)는 **판정 단위가 틀렸다**. 이 검사는 대상이 만 13~18세로 14세 미만과 이상이 섞이므로, 검사 단위가 아니라 **응시자 연령 단위**로 판정해야 한다. 컬럼은 남기되 이 검사에서는 사용하지 않는다.
 
+### 1.3 문항 배치 — 007 순서 + 위반 2건 교정
+
+007의 Q001~Q060은 **라운드로빈 혼합배치**다. 10문항씩 한 사이클이고, 각 사이클에 10개 요인이 정확히 한 번씩 나오며, 사이클 안의 요인 순서는 매번 다르게 섞여 있다.
+
+| 사이클 | 문항 | 배치(교정 후) |
+|---|---|---|
+| 1 | Q001~Q010 | DEP01 · LIF01 · ANX01 · ISO01 · FUT01 · IMP01 · FAM01 · TRM01 · RSK01 · SAF01 |
+| 2 | Q011~Q020 | ANX02 · FUT02 · FAM02 · DEP02 · RSK02 · TRM02 · LIF02 · SAF02 · IMP02 · ISO02 |
+| 3 | Q021~Q030 | **IMP03 · ISO03** · LIF03 · ANX03 · TRM03 · SAF03 · RSK03 · DEP03 · FUT03 · FAM03 |
+| 4 | Q031~Q040 | FUT04 · DEP04 · RSK04 · SAF04 · FAM04 · ANX04 · ISO04 · IMP04 · LIF04 · TRM04 |
+| 5 | Q041~Q050 | **LIF05 · SAF05 · TRM05** · FUT05 · IMP05 · DEP05 · FAM05 · ANX05 · RSK05 · ISO05 |
+| 6 | Q051~Q060 | RSK06 · ISO06 · DEP06 · TRM06 · FAM06 · ANX06 · FUT06 · IMP06 · LIF06 · SAF06 |
+
+**교정한 이유**: 007 §4.1의 첫 규칙 "동일 요인 문항은 연속 배치하지 않는다"를 007 표 자신이 **사이클 경계에서 2번 위반**한다. 사이클 안에서만 섞고 경계를 확인하지 않은 결과로 보인다.
+
+| 위치 | 원본 | 교정 |
+|---|---|---|
+| Q020 → Q021 | ISO02 → **ISO03** (연속) | Q021↔Q022 교환 → ISO02 → IMP03 → ISO03 |
+| Q040 → Q041 | TRM04 → **TRM05** (연속) | Q041↔Q043 교환 → TRM04 → LIF05 → SAF05 → TRM05 |
+
+Q041은 Q042가 아니라 **Q043과 교환**했다. 007 §4.1이 안전문항 위치를 Q010·Q018·Q026·Q034·**Q042**·Q060으로 고정했기 때문에 SAF05는 Q042에 그대로 둬야 한다.
+
+교정 후 상태: 동일 요인 연속 **0건** / 안전문항 6개 위치 유지 / 역채점 후반 분산 유지(FUT04=Q031, FUT05=Q044, FUT06=Q057) / 사이클당 10요인 1회씩 유지.
+
+**지금 교정하는 근거**: 007 부록 C가 "표시순서가 바뀌면 `assessment_version`을 올린다"고 규정하고, 아직 **표준화 전이라 기존 응답 데이터가 없다.** 표본 수집 시작 후에는 순서를 변경할 수 없다.
+
+개인별 무작위 순서변경은 007 §4.1대로 **금지**한다(표준화·재현성). 동일 `assessment_version`이면 모든 응시자가 같은 순서를 본다.
+
 ## 2. 데이터 모델
 
 기존 컬럼 **삭제 0건**. 기존 컬럼 **변경 1건**(`attempt_answers.value`를 nullable로 — 응답거부 저장에 필요). 나머지는 전부 추가.
@@ -73,6 +102,7 @@ Laravel 11은 `change()`에 doctrine/dbal이 필요 없다. 기존 행은 전부
 | 테이블 | 추가 컬럼 | 비고 |
 |---|---|---|
 | `tests` | `scoring_engine` varchar default `'signal'` | `'oy_msi'` |
+| | `assessment_version` varchar(30) default `'1.0.0'` | 문항 구성·표시순서 버전. 이 검사는 **1.0.1**(§1.3 교정 반영) |
 | | `min_age` / `max_age` smallint null | **13 / 18 = 검사의 대상 연령**(문서 기준). 개인 경로의 14세 하한은 아래 컬럼이 만든다 |
 | | `guardian_consent_below_age` smallint null | **14**(PIPA). 이 미만이면 법정대리인 동의 필요 → 개인 경로 차단·기관 경로만. null이면 연령 규칙 없음 |
 | `test_items` | `item_code` varchar(20) | `DEP01`… **채점의 유일한 기준**. unique(test_id, item_code) |
@@ -83,7 +113,7 @@ Laravel 11은 `change()`에 doctrine/dbal이 필요 없다. 기존 행은 전부
 | `test_attempts` | `nickname` varchar(50) null | |
 | | `age_at_test` smallint null | **생년월일은 저장하지 않음** — 만나이만 |
 | | `gender` varchar(20) null | |
-| | `scoring_version` varchar(30) null | 시작 시점 스냅샷 |
+| | `assessment_version` / `scoring_version` varchar(30) null | 시작 시점 스냅샷 (007 버전 고정 원칙) |
 | `test_results` | `general_case_code` varchar(5) | G0/Y1/Y2/R1/R2 |
 | | `final_case_code` varchar(5) | 위 또는 C1~C3 |
 | | `safety_level` char(2) / `environment_level` char(2) | S0~S3 / E0~E3 |
@@ -295,6 +325,7 @@ PDF는 2단계. 1단계는 브라우저 인쇄(`@media print` CSS는 원본 HTML
 | 1 | 경계값 | 007 §17 T01~T18. 합 5→GREEN / 6→YELLOW / 10→YELLOW / 11→RED, FUT04 raw3→scored0, **SAF04=1→S3(003 기준)**, FAM05=3→E3→C3, RED 2개→R2 |
 | 2 | **JS ↔ PHP 0 diff** | 무작위 응답 수천 건 대조. 요인점수·위험지수·밴드·S/E·사례코드·상위3영역. S등급만 의도적 차이(003) — 차이가 나야 할 곳에서만 나는지 확인 |
 | 3 | 문항 무결성 | 60문항 / `item_code` 유니크 / `display_order` 1~60 연속 / 요인별 6문항 / 역채점 FUT04~06 셋뿐 / SAF `included_in_overall=false` / 척도 배정 GEN 54·SAF-T 4·SAF-B 2 |
+| 3b | **배치 규칙** (007 §4.1) | **동일 요인 연속 0건**(사이클 경계 포함) / 안전문항이 Q010·Q018·Q026·Q034·Q042·Q060에 위치 / 10문항 사이클마다 10요인이 정확히 1회씩 / 역채점 FUT04~06이 후반(Q031 이후)에 분산 |
 | 4 | 문안 누락 0 | 135(9×3×5) + S0~S3 + E0~E3 + 종합 3 + 강점 5 + 솔루션 10 |
 | 5 | 금지 표현 | 005 부록1 §3의 10개 |
 | 6 | 동의 우회 차단 | `consent_records` 없이 `take`/`submit` 직접 호출 → 차단 |
