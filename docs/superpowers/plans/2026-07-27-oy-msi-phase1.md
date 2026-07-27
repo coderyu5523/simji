@@ -1771,13 +1771,20 @@ class CaseClassifier
         }
 
         $counts = ['red_count' => $red, 'yellow_count' => $yellow];
-        $code = 'G0';
+        // 폴백 리터럴을 두지 않는다 — 규칙에 포괄 항목이 없으면 조용히 G0(안정·예방군)로
+        // 분류되는 대신 시끄럽게 죽는다.
+        $code = null;
         foreach ($rules['case_codes']['general'] as $entry) {
             if ($entry['when'] === null) { $code = $entry['code']; break; }
             [$field, $op, $value] = $entry['when'];
             $actual = $counts[$field];
             $hit = $op === '>=' ? $actual >= $value : $actual === $value;
             if ($hit) { $code = $entry['code']; break; }
+        }
+        if ($code === null) {
+            throw new \InvalidArgumentException(
+                'scoring_rules.case_codes.general 에 일치하는 항목이 없습니다 — 마지막 항목의 when 이 null(포괄 규칙)인지 확인하십시오.'
+            );
         }
 
         return ['code' => $code] + $counts;
@@ -1792,7 +1799,13 @@ class CaseClassifier
         $highest = max($this->rank($safetyLevel), $this->rank($environmentLevel));
         if ($highest === 0) return $generalCode;
 
-        return $rules['case_codes']['escalation'][$highest] ?? $generalCode;
+        // 격상 경로에서 조용한 완화 금지 — 매핑이 없으면 경보가 사례코드에 반영되지 않는다.
+        if (!array_key_exists($highest, $rules['case_codes']['escalation'])) {
+            throw new \InvalidArgumentException(
+                "scoring_rules.case_codes.escalation 에 등급 {$highest} 매핑이 없습니다 — 안전·환경 경보가 사례코드로 반영되지 않습니다."
+            );
+        }
+        return $rules['case_codes']['escalation'][$highest];
     }
 
     /** 'S2' → 2, 'E0' → 0 */
