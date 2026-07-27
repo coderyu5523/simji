@@ -17,4 +17,6 @@ class TestAttempt extends Model
             : $this->guest_token === $request->session()->get('guest_token');
     }
     public function voucher() { return $this->belongsTo(Voucher::class); }
+    public function consents() { return $this->hasMany(ConsentRecord::class, 'attempt_id'); }
+    public function shares() { return $this->hasMany(ReportShare::class, 'attempt_id'); }
 }

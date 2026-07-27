@@ -1,12 +1,9 @@
 <?php
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
-class TestResult extends Model
+class ConsentRecord extends Model
 {
     protected $guarded = [];
-    protected $casts = [
-        'area_scores' => 'array', 'area_signals' => 'array',
-        'recommendations' => 'array', 'engine_result' => 'array',
-    ];
+    protected $casts = ['granted' => 'boolean', 'granted_at' => 'datetime', 'meta' => 'array'];
     public function attempt() { return $this->belongsTo(TestAttempt::class, 'attempt_id'); }
 }
