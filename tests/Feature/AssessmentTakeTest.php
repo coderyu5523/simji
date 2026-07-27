@@ -1,25 +1,29 @@
 <?php
-use App\Models\{Test, TestAttempt, TestResult};
+use App\Models\{Test, TestAttempt, TestResult, User};
 beforeEach(fn() => $this->seed(\Database\Seeders\SampleTestSeeder::class));
 
-function makeAttempt(): array {
+// 검사 응시(take/submit)는 로그인 필수 정책이므로 attempt는 guest_token이 아닌
+// user_id로 만들고, 요청은 그 사용자로 로그인해서 보낸다.
+function makeAttempt(\App\Models\User $user): array {
     $test = Test::where('code','KMSIA-SAMPLE')->with('items')->first();
-    $attempt = TestAttempt::create(['test_id'=>$test->id,'guest_token'=>'g-1','status'=>'in_progress','started_at'=>now()]);
+    $attempt = TestAttempt::create(['test_id'=>$test->id,'user_id'=>$user->id,'status'=>'in_progress','started_at'=>now()]);
     return [$test, $attempt];
 }
 
 test('take page renders all items', function () {
-    [$test, $attempt] = makeAttempt();
-    $this->withSession(['guest_token'=>'g-1'])
+    $user = User::factory()->create();
+    [$test, $attempt] = makeAttempt($user);
+    $this->actingAs($user)
         ->get("/assessment/KMSIA-SAMPLE/take/{$attempt->id}")
         ->assertOk()->assertSee('요즘 사소한 일에도');
 });
 
 test('submit stores answers, scores, and redirects to result', function () {
-    [$test, $attempt] = makeAttempt();
+    $user = User::factory()->create();
+    [$test, $attempt] = makeAttempt($user);
     $answers = [];
     foreach ($test->items as $item) $answers[$item->id] = 3;
-    $res = $this->withSession(['guest_token'=>'g-1'])
+    $res = $this->actingAs($user)
         ->post("/assessment/KMSIA-SAMPLE/take/{$attempt->id}", ['answers' => $answers]);
     $res->assertRedirect(route('result.show', $attempt->id));
     expect(TestResult::where('attempt_id',$attempt->id)->exists())->toBeTrue();
@@ -27,16 +31,19 @@ test('submit stores answers, scores, and redirects to result', function () {
 });
 
 test('cannot access others attempt', function () {
-    [$test, $attempt] = makeAttempt();
-    $this->withSession(['guest_token'=>'other'])
+    $owner = User::factory()->create();
+    $other = User::factory()->create();
+    [$test, $attempt] = makeAttempt($owner);
+    $this->actingAs($other)
         ->get("/assessment/KMSIA-SAMPLE/take/{$attempt->id}")->assertForbidden();
 });
 
 test('submit with out-of-range answer value returns 422 and does not create result', function () {
-    [$test, $attempt] = makeAttempt();
+    $user = User::factory()->create();
+    [$test, $attempt] = makeAttempt($user);
     $answers = [];
     foreach ($test->items as $item) $answers[$item->id] = 9; // out of range (max 5)
-    $res = $this->withSession(['guest_token'=>'g-1'])
+    $res = $this->actingAs($user)
         ->post("/assessment/KMSIA-SAMPLE/take/{$attempt->id}", ['answers' => $answers]);
     // Web routes redirect back (302) with session errors on validation failure
     $res->assertSessionHasErrors();
@@ -44,15 +51,16 @@ test('submit with out-of-range answer value returns 422 and does not create resu
 });
 
 test('submitting to already-submitted attempt returns 409 and does not re-score', function () {
-    [$test, $attempt] = makeAttempt();
+    $user = User::factory()->create();
+    [$test, $attempt] = makeAttempt($user);
     $answers = [];
     foreach ($test->items as $item) $answers[$item->id] = 3;
     // First submission (valid)
-    $this->withSession(['guest_token'=>'g-1'])
+    $this->actingAs($user)
         ->post("/assessment/KMSIA-SAMPLE/take/{$attempt->id}", ['answers' => $answers]);
     $resultCount = \App\Models\TestResult::where('attempt_id', $attempt->id)->count();
     // Second submission should be blocked
-    $res = $this->withSession(['guest_token'=>'g-1'])
+    $res = $this->actingAs($user)
         ->post("/assessment/KMSIA-SAMPLE/take/{$attempt->id}", ['answers' => $answers]);
     $res->assertStatus(409);
     expect(\App\Models\TestResult::where('attempt_id', $attempt->id)->count())->toBe($resultCount);

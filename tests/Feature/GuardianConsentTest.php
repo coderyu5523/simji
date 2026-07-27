@@ -1,5 +1,5 @@
 <?php
-use App\Models\Test;
+use App\Models\{Test, User};
 
 function makeGuardianTest(): Test {
     return Test::create([
@@ -10,9 +10,12 @@ function makeGuardianTest(): Test {
     ]);
 }
 
+// consent/agree는 로그인 필수 정책이므로 전부 로그인 사용자로 요청한다.
+
 test('guardian test consent shows guardian section and reporting notice', function () {
     makeGuardianTest();
-    $this->get('/assessment/ELEM-GC/consent')->assertOk()
+    $this->actingAs(User::factory()->create())
+        ->get('/assessment/ELEM-GC/consent')->assertOk()
         ->assertSee('만 14세 미만')
         ->assertSee('법정대리인')
         ->assertSee('아동학대'); // 신고의무 임시 고지
@@ -20,20 +23,23 @@ test('guardian test consent shows guardian section and reporting notice', functi
 
 test('guardian test agree requires guardian_agree', function () {
     makeGuardianTest();
-    $this->from('/assessment/ELEM-GC/consent')
+    $this->actingAs(User::factory()->create())
+        ->from('/assessment/ELEM-GC/consent')
         ->post('/assessment/ELEM-GC/agree', ['agree'=>'1']) // guardian_agree 누락
         ->assertSessionHasErrors('guardian_agree');
 });
 
 test('guardian test agree passes with both checks', function () {
     makeGuardianTest();
-    $this->post('/assessment/ELEM-GC/agree', ['agree'=>'1','guardian_agree'=>'1'])
+    $this->actingAs(User::factory()->create())
+        ->post('/assessment/ELEM-GC/agree', ['agree'=>'1','guardian_agree'=>'1'])
         ->assertRedirect(route('assessment.intro','ELEM-GC'));
 });
 
 test('adult test consent unchanged (no guardian section)', function () {
     $this->seed(\Database\Seeders\SampleTestSeeder::class);
-    $this->get('/assessment/KMSIA-SAMPLE/consent')->assertOk()
+    $this->actingAs(User::factory()->create())
+        ->get('/assessment/KMSIA-SAMPLE/consent')->assertOk()
         ->assertSee('민감정보')
         ->assertDontSee('법정대리인');
 });
