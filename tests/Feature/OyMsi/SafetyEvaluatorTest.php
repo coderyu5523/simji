@@ -60,3 +60,10 @@ test('높은 등급이 낮은 등급보다 우선한다', function () {
     // SAF03=3(S3) 와 SAF01=1(S1) 이 동시에 있으면 S3
     expect($this->eval->evaluate(saf(['SAF03' => 3, 'SAF01' => 1]), $this->rules))->toBe('S3');
 });
+
+test('safety_missing_min_level 규칙이 없으면 무응답 처리 시 예외를 던진다', function () {
+    $rules = $this->rules;
+    unset($rules['safety_missing_min_level']);
+
+    $this->eval->evaluate(saf(['SAF02' => null]), $rules);
+})->throws(InvalidArgumentException::class);

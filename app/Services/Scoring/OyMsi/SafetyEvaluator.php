@@ -20,7 +20,10 @@ class SafetyEvaluator
 
         // 007 §5.3 / 003 — 안전문항 응답거부·무응답은 0점 처리 금지, 최소 S1
         if ($this->hasMissingSafetyItem($rawByItemCode, $rules)) {
-            return $rules['safety_missing_min_level'] ?? 'S1';
+            return $rules['safety_missing_min_level']
+                ?? throw new \InvalidArgumentException(
+                    'scoring_rules 에 safety_missing_min_level 이 없습니다 — 안전문항 무응답 처리 기준이 정의되지 않았습니다.'
+                );
         }
 
         return 'S0';
