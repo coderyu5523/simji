@@ -32,3 +32,16 @@ test('조건을 채우면 HONEST_RESPONSE 는 붙지 않는다', function () {
     $s = $this->extractor->extract(['FUT04' => 3], $this->rules);
     expect($s)->toBe(['TRY_NEW']);
 });
+
+test('rules 에 always=true 기본 강점이 없으면 예외를 던진다', function () {
+    $rules = $this->rules;
+    $rules['strengths'] = array_filter(
+        $rules['strengths'],
+        fn (array $rule) => !($rule['always'] ?? false)
+    );
+
+    expect(fn () => $this->extractor->extract(
+        ['FUT04' => 0, 'FUT05' => 0, 'FUT06' => 0],
+        $rules
+    ))->toThrow(InvalidArgumentException::class);
+});

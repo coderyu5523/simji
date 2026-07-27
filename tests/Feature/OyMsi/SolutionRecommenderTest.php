@@ -46,6 +46,26 @@ test('최대 3개를 넘지 않는다', function () {
         ->toHaveCount(3);
 });
 
+test('dedupe 는 3개 cap 적용 전에 이루어진다 (cap-before-dedup 회귀 방지)', function () {
+    // 후보 4개: SOL_SAF_PLAN, SOL_DEP_ACTIVATION, SOL_LIF_7DAY(DEP 와 같은 '생활회복' 그룹), SOL_ANX_BREATHING
+    // dedupe 를 cap 전에 하면 3개 모두 서로 다른 그룹이라 3개가 남는다.
+    // cap 을 먼저 적용하면(회귀) 앞 3개([SAF, DEP, LIF])만 자르고 남은 걸 dedupe 해서 2개만 남는다.
+    $sols = $this->rec->recommend(top(['DEP', 'LIF', 'ANX']), 'S2', 'E0', $this->rules);
+    expect($sols)->toBe(['SOL_SAF_PLAN', 'SOL_DEP_ACTIVATION', 'SOL_ANX_BREATHING']);
+});
+
+test('S1 만으로는 안전 솔루션이 고정되지 않는다', function () {
+    $sols = $this->rec->recommend(top(['DEP', 'ANX', 'ISO']), 'S1', 'E0', $this->rules);
+    expect($sols)->not->toContain('SOL_SAF_PLAN');
+    expect($sols[0])->toBe('SOL_DEP_ACTIVATION');
+});
+
+test('E1 만으로는 안전 솔루션이 고정되지 않는다', function () {
+    $sols = $this->rec->recommend(top(['DEP', 'ANX', 'ISO']), 'S0', 'E1', $this->rules);
+    expect($sols)->not->toContain('SOL_SAF_PLAN');
+    expect($sols[0])->toBe('SOL_DEP_ACTIVATION');
+});
+
 test('재검 시점은 사례코드로 정한다', function () {
     expect($this->rec->recheckDays('C3', $this->rules)['days'])->toBe(14);
     expect($this->rec->recheckDays('R1', $this->rules)['days'])->toBe(14);
