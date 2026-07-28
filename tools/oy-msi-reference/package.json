@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "description": "Root package.json declares \"type\": \"module\"; this override keeps reference.js/generate-cases.js as CommonJS (module.exports/require) without touching the brief's file names."
+}
