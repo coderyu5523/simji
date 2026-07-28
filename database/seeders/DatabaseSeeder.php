@@ -26,5 +26,11 @@ class DatabaseSeeder extends Seeder
             SampleTestSeeder::class,
             PaidSampleSeeder::class,
         ]);
+
+        $this->call([
+            \Database\Seeders\OyMsi\TestSeeder::class,
+            \Database\Seeders\OyMsi\ScoringRuleSeeder::class,
+            \Database\Seeders\OyMsi\TemplateSeeder::class,
+        ]);
     }
 }
