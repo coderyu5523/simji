@@ -98,3 +98,15 @@ test('기존 5점 척도 검사에서 0 은 여전히 거부된다 (회귀)', fu
         ->post(route('assessment.submit', ['KMSIA-SAMPLE', $attempt->id]), ['answers' => $answers])
         ->assertSessionHasErrors();
 });
+
+test('type=likert4 인데 options 가 비어있는 문항은 조용히 1~5로 통과되지 않고 예외를 던진다', function () {
+    $item = new \App\Models\TestItem([
+        'id' => 999999, 'test_id' => $this->test->id, 'no' => 1,
+        'text' => '깨진 문항', 'type' => 'likert4', 'options' => null,
+        'item_code' => 'BAD01', 'area' => 'DEP',
+    ]);
+    $rule = new \App\Rules\AnswerValue(collect([999999 => $item]));
+
+    expect(fn () => $rule->validate('answers.999999', 2, fn ($msg) => null))
+        ->toThrow(\RuntimeException::class);
+});
