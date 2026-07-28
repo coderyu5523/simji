@@ -47,7 +47,7 @@
                     <p class="font-bold text-deepgreen">{{ $v->test->title_easy }}</p>
                     <p class="text-xs text-navy/50 mt-0.5">
                       @if($done)
-                        응시자: {{ $v->recipient_name }}@if($v->recipient_age) ({{ $v->recipient_age }})@endif · {{ optional($v->attempt->submitted_at)->format('Y.m.d') }}
+                        응시자: {{ $v->recipient_name ?? $v->attempt?->nickname ?? '이름 없음' }}@if($v->recipient_age) ({{ $v->recipient_age }})@endif · {{ optional($v->attempt->submitted_at)->format('Y.m.d') }}
                       @else
                         <span class="text-signal-yellow font-semibold">미응시</span> · 발급 {{ optional($v->assigned_at)->format('Y.m.d') }}
                       @endif
