@@ -41,7 +41,11 @@ for (let n = 0; n < CASE_COUNT; n++) {
       overall_index: scored.overallIndex,
       general_case_code: generalCode,
       environment_level: ref.getEnvironmentLevel(answers),
-      priority: ref.priorityFactors(scored.factorScores).slice(0, 3).map((f) => f.code),
+      // 9개 요인 전체의 JS 상대순서(top-3 로 자르지 않음). alert_bonus(007 §9.5) 가
+      // "해당 요인에만" 붙는 PHP 쪽과 대조할 때, 경보 요인은 이 순서 그대로 앞으로
+      // 당기고 나머지는 이 순서 그대로 뒤에 둔 것이 PHP 의 정확한 기대값이 된다
+      // (ReferenceParityTest.php 참고). top-3 로 미리 잘라두면 이 재구성이 불가능하다.
+      priority_full: ref.priorityFactorsFull(scored.factorScores).map((f) => f.code),
       // 참고용 — 대조하지 않음 (안전등급은 003 기준을 채택해 의도적으로 JS 007 기준과 다르다)
       js_safety_level: ref.getSafetyLevel(answers),
     },

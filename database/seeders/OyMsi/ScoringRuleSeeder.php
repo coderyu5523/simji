@@ -70,24 +70,28 @@ class ScoringRuleSeeder extends Seeder
             'safety_missing_min_level' => 'S1',
             'safety_items' => ['SAF01', 'SAF02', 'SAF03', 'SAF04', 'SAF05', 'SAF06'],
 
+            // 'factor' — 007 §7.3 의 환경 문항→요인 1:1 매핑(TRM06→TRM, FAM05→FAM,
+            // RSK04/05/06→RSK). PriorityRanker 의 alert_bonus(§9.5)가 "해당 요인에만"
+            // 붙어야 하므로, 조건을 만족한 문항이 실제로 속한 요인을 여기서 데이터로
+            // 명시한다(팬아웃 방지 — E2/E3 라고 TRM/FAM/RSK 셋 다에 붙이지 않는다).
             'environment' => [
                 'E3' => [
-                    ['item' => 'TRM06', 'op' => '=', 'value' => 3],
-                    ['item' => 'FAM05', 'op' => '=', 'value' => 3],
-                    ['item' => 'RSK06', 'op' => '=', 'value' => 3],
+                    ['item' => 'TRM06', 'op' => '=', 'value' => 3, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=', 'value' => 3, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=', 'value' => 3, 'factor' => 'RSK'],
                 ],
                 'E2' => [
-                    ['item' => 'TRM06', 'op' => '=',  'value' => 2],
-                    ['item' => 'FAM05', 'op' => '=',  'value' => 2],
-                    ['item' => 'RSK06', 'op' => '=',  'value' => 2],
-                    ['item' => 'RSK04', 'op' => '>=', 'value' => 2],
-                    ['item' => 'RSK05', 'op' => '>=', 'value' => 2],
+                    ['item' => 'TRM06', 'op' => '=',  'value' => 2, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=',  'value' => 2, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=',  'value' => 2, 'factor' => 'RSK'],
+                    ['item' => 'RSK04', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
+                    ['item' => 'RSK05', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
                 ],
                 'E1' => [
-                    ['item' => 'TRM06', 'op' => '=', 'value' => 1],
-                    ['item' => 'FAM05', 'op' => '=', 'value' => 1],
-                    ['item' => 'RSK06', 'op' => '=', 'value' => 1],
-                    ['item' => 'RSK05', 'op' => '=', 'value' => 1],
+                    ['item' => 'TRM06', 'op' => '=', 'value' => 1, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=', 'value' => 1, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
+                    ['item' => 'RSK05', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
                 ],
             ],
 

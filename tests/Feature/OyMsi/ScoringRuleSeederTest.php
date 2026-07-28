@@ -78,30 +78,43 @@ test('environment E3/E2/E1 조건이 정확하다 · E1 에는 RSK04 가 없다'
     $e = $this->rules['environment'];
 
     expect($e['E3'])->toBe([
-        ['item' => 'TRM06', 'op' => '=', 'value' => 3],
-        ['item' => 'FAM05', 'op' => '=', 'value' => 3],
-        ['item' => 'RSK06', 'op' => '=', 'value' => 3],
+        ['item' => 'TRM06', 'op' => '=', 'value' => 3, 'factor' => 'TRM'],
+        ['item' => 'FAM05', 'op' => '=', 'value' => 3, 'factor' => 'FAM'],
+        ['item' => 'RSK06', 'op' => '=', 'value' => 3, 'factor' => 'RSK'],
     ]);
 
     expect($e['E2'])->toBe([
-        ['item' => 'TRM06', 'op' => '=',  'value' => 2],
-        ['item' => 'FAM05', 'op' => '=',  'value' => 2],
-        ['item' => 'RSK06', 'op' => '=',  'value' => 2],
-        ['item' => 'RSK04', 'op' => '>=', 'value' => 2],
-        ['item' => 'RSK05', 'op' => '>=', 'value' => 2],
+        ['item' => 'TRM06', 'op' => '=',  'value' => 2, 'factor' => 'TRM'],
+        ['item' => 'FAM05', 'op' => '=',  'value' => 2, 'factor' => 'FAM'],
+        ['item' => 'RSK06', 'op' => '=',  'value' => 2, 'factor' => 'RSK'],
+        ['item' => 'RSK04', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
+        ['item' => 'RSK05', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
     ]);
 
     expect($e['E1'])->toBe([
-        ['item' => 'TRM06', 'op' => '=', 'value' => 1],
-        ['item' => 'FAM05', 'op' => '=', 'value' => 1],
-        ['item' => 'RSK06', 'op' => '=', 'value' => 1],
-        ['item' => 'RSK05', 'op' => '=', 'value' => 1],
+        ['item' => 'TRM06', 'op' => '=', 'value' => 1, 'factor' => 'TRM'],
+        ['item' => 'FAM05', 'op' => '=', 'value' => 1, 'factor' => 'FAM'],
+        ['item' => 'RSK06', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
+        ['item' => 'RSK05', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
     ]);
 
     // RSK04 가 E1에 다시 들어오면 (가벼운 음주/흡연 1회만으로도) 최종 사례코드가
     // 과잉 상향될 수 있다 — 이 부재는 의도적이며 회귀 시 조용히 깨져서는 안 된다.
     $e1Items = collect($e['E1'])->pluck('item')->all();
     expect($e1Items)->not->toContain('RSK04');
+});
+
+test('environment 조건마다 007 §7.3 문항→요인 매핑이 factor 로 명시돼 있다', function () {
+    // alert_bonus(§9.5) 가 "해당 요인에만" 붙으려면 조건마다 자기 요인을 알아야
+    // 한다 — TRM06→TRM, FAM05→FAM, RSK04/05/06→RSK.
+    $e = $this->rules['environment'];
+    foreach (['E1', 'E2', 'E3'] as $level) {
+        foreach ($e[$level] as $condition) {
+            expect($condition)->toHaveKey('factor');
+            $expectedFactor = str_starts_with($condition['item'], 'RSK') ? 'RSK' : substr($condition['item'], 0, 3);
+            expect($condition['factor'])->toBe($expectedFactor);
+        }
+    }
 });
 
 test('case_codes.general 순서가 R2,R1,Y2,Y1,G0 이고 마지막 when 이 null 이다', function () {

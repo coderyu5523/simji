@@ -808,24 +808,31 @@ class ScoringRuleSeeder extends Seeder
             'safety_missing_min_level' => 'S1',
             'safety_items' => ['SAF01', 'SAF02', 'SAF03', 'SAF04', 'SAF05', 'SAF06'],
 
+            // 'factor' — 007 §7.3 의 환경 문항→요인 1:1 매핑(TRM06→TRM, FAM05→FAM,
+            // RSK04/05/06→RSK). PriorityRanker 의 alert_bonus(§9.5)가 "해당 요인에만"
+            // 붙어야 하므로(TRM/FAM/RSK 셋 다에 일괄 팬아웃하지 않음), 조건을 만족한
+            // 문항이 실제로 속한 요인을 데이터로 명시한다.
+            // (2026-07-28 리뷰 라운드 1 수정 — 최초 계획에는 factor 키가 없었고,
+            // OyMsiScoringEngine::alertFactors() 가 environment_level>=2 일 때 TRM/FAM/RSK
+            // 세 요인 모두에 +1000 을 뿌리는 버그가 있었다. 아래 alertFactors 도 함께 수정.)
             'environment' => [
                 'E3' => [
-                    ['item' => 'TRM06', 'op' => '=', 'value' => 3],
-                    ['item' => 'FAM05', 'op' => '=', 'value' => 3],
-                    ['item' => 'RSK06', 'op' => '=', 'value' => 3],
+                    ['item' => 'TRM06', 'op' => '=', 'value' => 3, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=', 'value' => 3, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=', 'value' => 3, 'factor' => 'RSK'],
                 ],
                 'E2' => [
-                    ['item' => 'TRM06', 'op' => '=',  'value' => 2],
-                    ['item' => 'FAM05', 'op' => '=',  'value' => 2],
-                    ['item' => 'RSK06', 'op' => '=',  'value' => 2],
-                    ['item' => 'RSK04', 'op' => '>=', 'value' => 2],
-                    ['item' => 'RSK05', 'op' => '>=', 'value' => 2],
+                    ['item' => 'TRM06', 'op' => '=',  'value' => 2, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=',  'value' => 2, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=',  'value' => 2, 'factor' => 'RSK'],
+                    ['item' => 'RSK04', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
+                    ['item' => 'RSK05', 'op' => '>=', 'value' => 2, 'factor' => 'RSK'],
                 ],
                 'E1' => [
-                    ['item' => 'TRM06', 'op' => '=', 'value' => 1],
-                    ['item' => 'FAM05', 'op' => '=', 'value' => 1],
-                    ['item' => 'RSK06', 'op' => '=', 'value' => 1],
-                    ['item' => 'RSK05', 'op' => '=', 'value' => 1],
+                    ['item' => 'TRM06', 'op' => '=', 'value' => 1, 'factor' => 'TRM'],
+                    ['item' => 'FAM05', 'op' => '=', 'value' => 1, 'factor' => 'FAM'],
+                    ['item' => 'RSK06', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
+                    ['item' => 'RSK05', 'op' => '=', 'value' => 1, 'factor' => 'RSK'],
                 ],
             ],
 
@@ -1617,6 +1624,13 @@ class EnvironmentEvaluator
 {
     private const LEVELS = ['E3', 'E2', 'E1'];
 
+    // 007 §9.5 — alert_bonus 는 "해당 요인에 HIGH/CRITICAL 경보가 있으면" 붙는다.
+    // E2=HIGH, E3=CRITICAL 로 본다(003/007 의 S2=HIGH·S3=CRITICAL 관례와 동일).
+    // E1 은 WARN 수준으로 간주해 alert_bonus 대상에서 제외한다.
+    // (2026-07-28 리뷰 라운드 1 추가 — alertedFactors() 없이는 OyMsiScoringEngine 이
+    // "환경등급이 E2/E3 다" 라고 TRM/FAM/RSK 세 요인 모두에 뿌리는 팬아웃 버그가 있었다.)
+    private const ALERT_BONUS_LEVELS = ['E3', 'E2'];
+
     public function __construct(private ConditionMatcher $matcher = new ConditionMatcher()) {}
 
     /** @param array<string, int|null> $rawByItemCode */
@@ -1628,6 +1642,29 @@ class EnvironmentEvaluator
             }
         }
         return 'E0';
+    }
+
+    /**
+     * 007 §7.3(환경 문항→요인 1:1 매핑) + §9.5(alert_bonus 는 "해당 요인"에만) —
+     * E2/E3 조건 중 실제로 만족된 것만, 그 조건에 데이터로 명시된 factor 에 귀속시킨다.
+     *
+     * @param  array<string, int|null>  $rawByItemCode
+     * @return list<string>  경보가 걸린 요인 코드(중복 제거)
+     */
+    public function alertedFactors(array $rawByItemCode, array $rules): array
+    {
+        $factors = [];
+        foreach (self::ALERT_BONUS_LEVELS as $level) {
+            foreach ($rules['environment'][$level] ?? [] as $condition) {
+                if (!$this->matcher->matches($condition, $rawByItemCode)) continue;
+                $factor = $condition['factor'] ?? throw new \InvalidArgumentException(
+                    "scoring_rules.environment.{$level} 조건에 factor 가 없습니다 — "
+                    . "alert_bonus 를 어느 요인에 줄지 정의되지 않았습니다: " . json_encode($condition)
+                );
+                $factors[$factor] = true;
+            }
+        }
+        return array_keys($factors);
     }
 }
 ```
@@ -2428,7 +2465,7 @@ class OyMsiScoringEngine implements ScoringEngine
         $finalCode = $this->classifier->final($general['code'], $safetyLevel, $environmentLevel, $rules);
 
         // 6. 우선순위·강점·솔루션·재검
-        $alertFactors = $this->alertFactors($safetyLevel, $environmentLevel);
+        $alertFactors = $this->alertFactors($safetyLevel, $raw, $rules);
         $priority = $this->ranker->rank($factors, $rules, $alertFactors);
         $strengthCodes = $this->strengths->extract($raw, $rules);
         $solutionCodes = $this->solutions->recommend($priority, $safetyLevel, $environmentLevel, $rules);
@@ -2491,13 +2528,28 @@ class OyMsiScoringEngine implements ScoringEngine
         );
     }
 
-    /** 경보가 걸린 요인 — 우선순위 alert_bonus 대상 */
-    private function alertFactors(string $safetyLevel, string $environmentLevel): array
+    /**
+     * 경보가 걸린 요인 — 우선순위 alert_bonus(007 §9.5) 대상.
+     *
+     * (2026-07-28 리뷰 라운드 1 수정) 환경 쪽은 EnvironmentEvaluator::alertedFactors()
+     * 에 위임한다 — "환경등급이 E2/E3 다" 라고 TRM/FAM/RSK 세 요인 모두에 붙이는 것은
+     * 스펙에 없다(007 §7.3 은 문항→요인 1:1 매핑이다). 실제로 임계값을 넘은 문항이
+     * 속한 요인에만 준다. 예전 버전(아래에서 삭제된 한 줄)은 environment_level 문자열
+     * 만 보고 TRM/FAM/RSK 를 일괄로 넣었는데, 이러면 RSK05 하나만 걸려도 트라우마·
+     * 가족까지 부당하게 상위 3에 끼어 우울/불안 RED 인 청소년의 진짜 고위험 요인이
+     * 결과지에서 밀려난다(무작위 3000건 대조에서 2860건이 이 팬아웃으로 상위3이
+     * {FAM,RSK,TRM} 으로 고정됨 — Task 10 리뷰에서 발견).
+     *
+     * 'SAF' 분기는 현재 사문(死文)이다 — PriorityRanker::rank() 가
+     * included_in_overall=false 인 SAF 를 순위 계산에서 먼저 걸러내므로 SAF 가
+     * alertFactors 에 들어 있어도 실제 우선순위에 영향을 주지 않는다. 이 라운드는
+     * 환경 쪽 팬아웃 버그만 고치는 것이 범위이므로 이 분기는 그대로 둔다(YAGNI).
+     */
+    private function alertFactors(string $safetyLevel, array $raw, array $rules): array
     {
         $out = [];
         if ((int) substr($safetyLevel, 1) >= 2) $out[] = 'SAF';
-        if ((int) substr($environmentLevel, 1) >= 2) { $out[] = 'TRM'; $out[] = 'FAM'; $out[] = 'RSK'; }
-        return $out;
+        return array_merge($out, $this->environment->alertedFactors($raw, $rules));
     }
 
     private function overallStatus(array $factors, array $rules): string
@@ -2574,6 +2626,10 @@ git commit -m "feat(oy-msi): 채점 엔진 조립 — 요인·안전·환경·�
 **대조 범위**: 요인 raw·위험지수·밴드, 전체 위험지수, **일반** 사례코드, 환경등급, 상위 3영역.
 **안전등급(S)은 대조에서 제외한다** — 003 기준을 채택해 JS(007 기준)와 의도적으로 다르다. 대신 별도 테스트에서 "JS 기준으로는 S2인데 우리는 S3"인 케이스가 실제로 그렇게 갈리는지 확인한다.
 
+> **(2026-07-28 리뷰 라운드 1 수정 — 이 Task 의 최초 계획에 결함 2건이 있었다.)**
+> 1. **상위 3영역 대조가 애초에 성립하지 않는다.** 아래 Step 3/5 원안은 `priorityFactors(scored).slice(0,3)` 로 JS 도 top-3, PHP 도 top-3 를 그대로 비교하지만, PHP `PriorityRanker` 의 alert_bonus(007 §9.5) 계산에는 원본 JS `priorityFactors()` 에 없는 항이 있어 경보가 걸리면 순서가 달라지는 게 정상이다. 최초 구현(Task 10 1차 시도)은 이를 "환경등급 E2/E3 면 TRM/FAM/RSK 세 요인 모두에 +1000" 으로 구현했는데, 이는 007 §7.3(환경 문항→요인 1:1 매핑)·§9.5("해당 요인에" 붙는다) 에 없는 팬아웃이었다 — 무작위 3000건의 97.5%(2926건)에서 상위 3영역이 {FAM,RSK,TRM} 으로 고정되는 임상적 결함으로 이어졌다. **Task 7/9 의 `OyMsiScoringEngine::alertFactors()`/`EnvironmentEvaluator` 를 수정**해 실제로 임계값을 넘은 문항의 요인에만 bonus 를 준다(§7.3/§9.5 관련 코드 블록에 수정 반영됨).
+> 2. **대조 테스트 자체도 top-3 로 미리 자른 값끼리 비교해서는 안 된다.** alert_bonus 로 순서가 바뀌는 케이스에서 "그래도 이 정도는 같아야 한다"를 검증하려면 JS 의 9요인 **전체** 순서가 필요하다(top-3 로 자르면 복원 불가). 그래서 `reference.js` 에 원본에 없는 테스트 하네스 전용 함수 `priorityFactorsFull()`(`priorityFactors()` 와 정렬공식 동일, `slice(0,3)` 만 없음)을 추가하고, `generate-cases.js` 는 `priority`(top-3) 대신 `priority_full`(9개 전체)을 저장한다. `ReferenceParityTest.php` 는 "JS 전체순서를 경보요인 우선으로 재배열한 것"을 기대값으로 삼아 3000건 전부에서 순서까지 대조한다(집합 비교로 완화하지 않음). 아래 Step 2/3/5 코드 블록은 이 수정을 반영해 갱신했다 — 최초 원안 그대로 구현하면 위 팬아웃 버그를 놓친다.
+
 - [ ] **Step 1: 추출 절차를 문서로 남긴다**
 
 `tools/oy-msi-reference/extract.md`:
@@ -2607,12 +2663,28 @@ module.exports = {
 };
 ```
 
+**(라운드 1 수정)** 실제로는 `getFinalCaseCode` 가 `generalCode` 를 인자로만 받고 계산하지 않아 `getGeneralCode`(원본 2190~2199행)도 함께 옮겨야 했고, `priorityFactors()` 의 top-3 절단을 우회할 `priorityFactorsFull()`(원본에 없는 하네스 전용 함수 — 정렬공식은 100% 동일, `slice(0,3)` 만 제거)도 추가했다:
+
+```js
+module.exports = {
+  ITEMS, FACTOR_META,
+  scoreAnswers, getSafetyLevel, getEnvironmentLevel, getGeneralCode, getFinalCaseCode, priorityFactors,
+  priorityFactorsFull,
+};
+```
+
 - [ ] **Step 3: 케이스 생성기 작성**
 
 `tools/oy-msi-reference/generate-cases.js`:
 
+**(라운드 1 수정 — 최종 버전)** `priority` 를 top-3 로 잘라 저장하면 alert_bonus 재배열 대조가
+불가능해, `priority_full`(9요인 전체 JS 순서)을 대신 저장한다. `scoreAnswers()` 의 실제 반환
+키는 `factorScores`/`overallIndex` 뿐이고 `generalCode` 는 없어(별도 함수) `ref.getGeneralCode()`
+를 따로 호출한다.
+
 ```js
 const fs = require('fs');
+const path = require('path');
 const ref = require('./reference.js');
 
 // 재현 가능한 난수 (mulberry32)
@@ -2636,25 +2708,26 @@ for (let n = 0; n < CASE_COUNT; n++) {
   }
 
   const scored = ref.scoreAnswers(answers);
+  const generalCode = ref.getGeneralCode(scored.factorScores);
+
   cases.push({
     answers,
     expected: {
-      factors: scored.factors,            // {code: {raw, riskIndex, band}}
+      factors: scored.factorScores,       // {code: {raw, count, riskIndex, band}}
       overall_index: scored.overallIndex,
-      general_case_code: scored.generalCode,
+      general_case_code: generalCode,
       environment_level: ref.getEnvironmentLevel(answers),
-      priority: ref.priorityFactors(scored).slice(0, 3).map((f) => f.code),
+      // 9개 요인 전체의 JS 상대순서(top-3 로 자르지 않음) — alert_bonus 재배열 대조용
+      priority_full: ref.priorityFactorsFull(scored.factorScores).map((f) => f.code),
       // 참고용 — 대조하지 않음 (우리는 003 기준)
       js_safety_level: ref.getSafetyLevel(answers),
     },
   });
 }
 
-fs.writeFileSync(
-  '../../tests/fixtures/oy-msi-reference-cases.json',
-  JSON.stringify(cases, null, 0)
-);
-console.log(`generated ${cases.length} cases`);
+const outPath = path.join(__dirname, '..', '..', 'tests', 'fixtures', 'oy-msi-reference-cases.json');
+fs.writeFileSync(outPath, JSON.stringify(cases, null, 0));
+console.log(`generated ${cases.length} cases -> ${outPath}`);
 ```
 
 - [ ] **Step 4: 케이스 생성 실행**
@@ -2665,6 +2738,14 @@ Expected: `generated 3000 cases`, `tests/fixtures/oy-msi-reference-cases.json` �
 - [ ] **Step 5: 대조 테스트 작성**
 
 `tests/Feature/OyMsi/ReferenceParityTest.php`:
+
+**(라운드 1 수정 — 최종 버전)** 상위 3영역은 더 이상 top-3 끼리 직접 비교하지 않는다.
+`alertedFactorsFromAnswers()` 가 007 §7.3(TRM06/FAM05/RSK04/RSK05/RSK06 ≥ 2, E1=WARN 은 제외)
+을 원응답에서 **독립적으로** 재도출하고, `expectedTop3()` 가 "JS 9요인 전체 순서를 경보 요인
+우선으로 재배열"한 값을 기대값으로 만든다 — PHP 랭킹 공식(weight+riskIndex+tieBreak+bonus)을
+테스트 안에서 재계산하지 않는다(그러면 엔진을 엔진으로 검증하는 셈이 된다). alert_bonus 가
+모든 경보 요인에 동일하게 +1000 이고 tie_break 가 JS 와 같기 때문에 이 재배열은 실제
+PHP 결과와 **순서까지** 완전히 일치해야 한다(집합 비교로 완화하지 않음).
 
 ```php
 <?php
@@ -2680,6 +2761,27 @@ beforeEach(function () {
     $this->test = Test::where('code', 'OY_MSI')->with('items', 'scoringRule')->firstOrFail();
     $this->itemsByCode = $this->test->items->keyBy('item_code');
 });
+
+/** 007 §7.3 매핑을 fixture 원응답에서 독립적으로 재도출(PHP 엔진 코드를 베끼지 않음). */
+function alertedFactorsFromAnswers(array $answers): array
+{
+    $alerted = [];
+    if (($answers['TRM06'] ?? 0) >= 2) $alerted['TRM'] = true;
+    if (($answers['FAM05'] ?? 0) >= 2) $alerted['FAM'] = true;
+    if (($answers['RSK06'] ?? 0) >= 2 || ($answers['RSK04'] ?? 0) >= 2 || ($answers['RSK05'] ?? 0) >= 2) {
+        $alerted['RSK'] = true;
+    }
+    return array_keys($alerted);
+}
+
+/** JS 전체순서를 "경보 요인 우선, 각 그룹 내부는 JS 상대순서 유지"로 재배열해 상위 3을 뽑는다. */
+function expectedTop3(array $jsFullOrder, array $alertedFactors): array
+{
+    $alertedSet = array_flip($alertedFactors);
+    $alerted = array_values(array_filter($jsFullOrder, fn ($f) => isset($alertedSet[$f])));
+    $rest = array_values(array_filter($jsFullOrder, fn ($f) => !isset($alertedSet[$f])));
+    return array_slice(array_merge($alerted, $rest), 0, 3);
+}
 
 test('JS 참조 구현과 0 diff (요인·전체지수·일반코드·환경등급·상위3)', function () {
     $path = base_path('tests/fixtures/oy-msi-reference-cases.json');
@@ -2734,10 +2836,14 @@ test('JS 참조 구현과 0 diff (요인·전체지수·일반코드·환경등�
             $mismatches[] = "case {$index} environment_level: "
                 . $result->environment_level . ' vs ' . $exp['environment_level'];
         }
-        if (array_column($engine['priority'], 'factor') !== $exp['priority']) {
+
+        $alertedFactors = alertedFactorsFromAnswers($case['answers']);
+        $expected = expectedTop3($exp['priority_full'], $alertedFactors);
+        $actual = array_column($engine['priority'], 'factor');
+        if ($actual !== $expected) {
             $mismatches[] = "case {$index} priority: "
-                . implode(',', array_column($engine['priority'], 'factor'))
-                . ' vs ' . implode(',', $exp['priority']);
+                . implode(',', $actual) . ' vs ' . implode(',', $expected)
+                . ' (alerted=' . implode(',', $alertedFactors) . ')';
         }
 
         if (count($mismatches) > 20) break; // 로그 폭주 방지
@@ -2762,13 +2868,34 @@ test('003 기준 채택 때문에 안전등급만 JS 와 갈린다', function ()
     // 0 이면 fixture 생성이 잘못됐거나 참조 구현이 003 기준으로 오염된 것이다.
     expect($promoted)->toBeGreaterThan(0);
 })->group('parity');
+
+test('환경경보로 인한 alert_bonus 상위3 재배열이 실제로 다수 발생한다', function () {
+    // 경보 있는/없는 케이스가 각각 다수 있어야 하고, 재배열로 실제 순서가 바뀌는
+    // 케이스도 있어야 한다 — 0-diff 테스트가 눈속임(항상 같은 분기만 타는 것)이
+    // 아님을 확인한다.
+    $cases = json_decode(file_get_contents(base_path('tests/fixtures/oy-msi-reference-cases.json')), true);
+
+    $alertedCount = 0; $noAlertCount = 0; $reordered = 0;
+    foreach ($cases as $case) {
+        $alertedFactors = alertedFactorsFromAnswers($case['answers']);
+        if ($alertedFactors === []) { $noAlertCount++; continue; }
+        $alertedCount++;
+        $jsTop3 = array_slice($case['expected']['priority_full'], 0, 3);
+        $expected = expectedTop3($case['expected']['priority_full'], $alertedFactors);
+        if ($expected !== $jsTop3) $reordered++;
+    }
+
+    expect($alertedCount)->toBeGreaterThan(0);
+    expect($noAlertCount)->toBeGreaterThan(0);
+    expect($reordered)->toBeGreaterThan(0);
+})->group('parity');
 ```
 
 - [ ] **Step 6: 대조 실행**
 
 Run: `export PATH="/c/xampp/php:$PATH" && php artisan test --filter=ReferenceParityTest`
-Expected: PASS 2건.
-불일치가 나오면 메시지에 어느 케이스·어느 요인이 어긋났는지 최대 20건이 찍힌다. 우선 확인할 것 — ① 반올림 자리수(`round(x, 1)`) ② 역채점 대상이 FUT04~06 셋뿐인지 ③ 상위 3영역 tie_break 가중치 부호.
+Expected: PASS 3건(라운드 1 이후 — 재배열 sanity 테스트 1건 추가).
+불일치가 나오면 메시지에 어느 케이스·어느 요인이 어긋났는지 최대 20건이 찍힌다. 우선 확인할 것 — ① 반올림 자리수(`round(x, 1)`) ② 역채점 대상이 FUT04~06 셋뿐인지 ③ alert_bonus 가 007 §7.3 매핑대로 "해당 요인에만" 붙는지(TRM/FAM/RSK 일괄 팬아웃 금지).
 
 - [ ] **Step 7: 커밋**
 

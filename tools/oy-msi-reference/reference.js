@@ -801,7 +801,23 @@
         .slice(0, 3);
     }
 
+// ── 여기부터는 원본에 없는, 테스트 하네스 전용 추가 함수다 (2026-07-28 리뷰 라운드 1 대응) ──
+// priorityFactors() 의 `.slice(0, 3)` 은 원본 알고리즘 자체의 일부이므로 손대지 않았다
+// (원본 그대로 top-3 만 반환). 하지만 PHP 쪽 대조 테스트가 alert_bonus(007 §9.5) 로 인한
+// 순위 변동을 "집합 비교"가 아니라 "완전 도출 가능한 순서 비교"로 검증하려면 9개 요인
+// 전체의 JS 상대순서가 필요하다. 정렬 공식(weight+riskIndex+tieBreak)은 priorityFactors 와
+// 100% 동일하게 재사용했고 바뀐 것은 slice 를 뺀 것뿐이다 — 즉 이 함수의 산출물은
+// priorityFactors(factorScores) 를 3개로 자르기 전 상태와 항상 정확히 같다.
+function priorityFactorsFull(factorScores) {
+  const weight = { GREEN: 0, YELLOW: 100, RED: 200 };
+  const tieBreak = { DEP: 9, TRM: 8, FAM: 7, RSK: 6, IMP: 5, ISO: 4, LIF: 3, ANX: 2, FUT: 1 };
+  return Object.entries(factorScores)
+    .map(([code, data]) => ({ code, ...data, priority: weight[data.band] + data.riskIndex + tieBreak[code] / 100 }))
+    .sort((a, b) => b.priority - a.priority);
+}
+
 module.exports = {
   ITEMS, FACTOR_META,
   scoreAnswers, getSafetyLevel, getEnvironmentLevel, getGeneralCode, getFinalCaseCode, priorityFactors,
+  priorityFactorsFull,
 };

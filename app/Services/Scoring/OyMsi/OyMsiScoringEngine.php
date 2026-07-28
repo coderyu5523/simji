@@ -55,7 +55,7 @@ class OyMsiScoringEngine implements ScoringEngine
         $finalCode = $this->classifier->final($general['code'], $safetyLevel, $environmentLevel, $rules);
 
         // 6. 우선순위·강점·솔루션·재검 — 강점은 raw 사용 (역채점 전 원점수)
-        $alertFactors = $this->alertFactors($safetyLevel, $environmentLevel);
+        $alertFactors = $this->alertFactors($safetyLevel, $raw, $rules);
         $priority = $this->ranker->rank($factors, $rules, $alertFactors);
         $strengthCodes = $this->strengths->extract($raw, $rules);
         $solutionCodes = $this->solutions->recommend($priority, $safetyLevel, $environmentLevel, $rules);
@@ -118,13 +118,23 @@ class OyMsiScoringEngine implements ScoringEngine
         );
     }
 
-    /** 경보가 걸린 요인 — 우선순위 alert_bonus 대상 */
-    private function alertFactors(string $safetyLevel, string $environmentLevel): array
+    /**
+     * 경보가 걸린 요인 — 우선순위 alert_bonus(007 §9.5) 대상.
+     *
+     * 환경 쪽은 EnvironmentEvaluator::alertedFactors() 에 위임한다 — "환경등급이
+     * E2/E3 다" 라고 TRM/FAM/RSK 세 요인 모두에 붙이는 것은 스펙에 없다(007 §7.3
+     * 은 문항→요인 1:1 매핑이다). 실제로 임계값을 넘은 문항이 속한 요인에만 준다.
+     *
+     * 'SAF' 분기는 현재 사문(死文)이다 — PriorityRanker::rank() 가
+     * included_in_overall=false 인 SAF 를 순위 계산에서 먼저 걸러내므로 SAF 가
+     * alertFactors 에 들어 있어도 실제 우선순위에 영향을 주지 않는다. 이번 라운드는
+     * 환경 쪽 팬아웃 버그만 고치는 것이 범위이므로 이 분기는 그대로 둔다(YAGNI).
+     */
+    private function alertFactors(string $safetyLevel, array $raw, array $rules): array
     {
         $out = [];
         if ((int) substr($safetyLevel, 1) >= 2) $out[] = 'SAF';
-        if ((int) substr($environmentLevel, 1) >= 2) { $out[] = 'TRM'; $out[] = 'FAM'; $out[] = 'RSK'; }
-        return $out;
+        return array_merge($out, $this->environment->alertedFactors($raw, $rules));
     }
 
     /**
