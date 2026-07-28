@@ -45,10 +45,14 @@ test('동의하면 attempt 가 created 상태로 생기고 동의 기록이 남�
 // 아래 두 건은 "SENSITIVE 동의가 없으면 막힌다"를 지키는 테스트다. Task 13 의 나이 가드가
 // 동의 검사보다 앞에 서므로, age_at_test 를 채워 나이 사유로 403 이 나는 것을 배제해야
 // 동의 사유로 막혔음을 실제로 검증할 수 있다. (안 채우면 동의 검사를 지워도 초록불이 된다.)
+// Task 14 의 닉네임 가드(AssessmentController::take/submit)가 동의 검사 뒤에 있다. nickname 을
+// 안 채우면 SENSITIVE 동의 검사를 지워도 닉네임 가드가 대신 막아 이 테스트가 계속 초록불이 된다
+// (final-review C1) — nickname 을 채워 동의 검사 자체에 도달하게 한다.
 test('동의 없이 만든 attempt 로는 take 에 들어갈 수 없다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
+        'nickname' => '테스트',
     ]);
 
     $this->actingAs($this->user)
@@ -56,10 +60,14 @@ test('동의 없이 만든 attempt 로는 take 에 들어갈 수 없다', functi
         ->assertForbidden();
 });
 
+// nickname 없이는 submit() 의 닉네임 가드(AssessmentController:174, abort_if 403)가 SENSITIVE 동의
+// 검사를 지워도 대신 403 을 던져 이 테스트를 가려버린다(final-review C1) — nickname 을 채워야
+// 동의 검사 자체가 살아있는지 검증된다.
 test('동의 없이 submit 을 직접 호출해도 차단된다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
+        'nickname' => '테스트',
     ]);
     $answers = [];
     foreach ($this->test->items as $item) $answers[$item->id] = 0;

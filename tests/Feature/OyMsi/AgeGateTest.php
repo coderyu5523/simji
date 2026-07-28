@@ -153,10 +153,14 @@ test('미래 날짜·잘못된 형식은 거부한다', function () {
 
 // ── (a) fail closed: 나이를 모르는 attempt 는 통과가 아니라 차단 ────────────
 
+// Task 14 닉네임 가드가 age fail-closed 검사(ConsentGate:46-48) 뒤에 있다. nickname 을 안 채우면
+// age 가드를 지워도 닉네임 가드가 대신 막아 이 테스트가 계속 초록불이 된다(final-review C1) —
+// nickname 을 채워 age 가드 자체에 도달하게 한다.
 test('(a) 나이를 모르는 attempt 는 동의가 있어도 take 에서 차단된다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => null,
+        'nickname' => '테스트',
     ]);
     app(ConsentGate::class)->record($attempt, ConsentGate::SENSITIVE, 'youth', $this->user->id);
 
@@ -165,10 +169,14 @@ test('(a) 나이를 모르는 attempt 는 동의가 있어도 take 에서 차단
         ->assertForbidden();
 });
 
+// submit() 의 닉네임 가드(AssessmentController:174, abort_if 403)가 age fail-closed 검사를 지워도
+// 대신 403 을 던져 이 테스트를 가려버린다(final-review C1) — nickname 을 채워야 age 가드 자체가
+// 살아있는지 검증된다.
 test('(a) 나이를 모르는 attempt 는 submit 도 차단된다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => null,
+        'nickname' => '테스트',
     ]);
     app(ConsentGate::class)->record($attempt, ConsentGate::SENSITIVE, 'youth', $this->user->id);
 
@@ -182,12 +190,16 @@ test('(a) 나이를 모르는 attempt 는 submit 도 차단된다', function () 
     expect($attempt->fresh()->status)->not->toBe('submitted');
 });
 
+// LinkController::take() 에는 현재 닉네임 가드가 없어 이 케이스 자체는 그것으로 가려지지
+// 않지만, 형제 fixture(위 두 건)와의 일관성 + 향후 링크 경로에도 같은 가드가 붙을 가능성을 위해
+// 동일하게 nickname 을 채워둔다(final-review C1 스캔 결과).
 test('(a) 링크 경로도 나이를 모르는 attempt 는 차단된다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok-noage');
     $attempt = TestAttempt::create([
         'user_id' => null, 'guest_token' => 'g-noage',
         'test_id' => $this->test->id, 'voucher_id' => $voucher->id,
         'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => null,
+        'nickname' => '테스트',
     ]);
     app(ConsentGate::class)->record($attempt, ConsentGate::SENSITIVE, 'youth');
 

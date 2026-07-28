@@ -92,6 +92,37 @@ test('기본정보 없이 submit 을 직접 호출하면 차단되고 채점되�
     expect($attempt->fresh()->status)->not->toBe('submitted');
 });
 
+test('제출 완료된 attempt 로 프로필을 재전송해도 식별 라벨이 바뀌지 않는다 (final-review I1)', function () {
+    $attempt = passGateAndConsent($this, $this->user, 16);
+
+    $this->actingAs($this->user)
+        ->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
+        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+
+    $this->actingAs($this->user)
+        ->post(route('assessment.start', 'OY_MSI'))
+        ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));
+
+    $this->test->load('items');
+    $answers = [];
+    foreach ($this->test->items as $item) $answers[$item->id] = 0;
+
+    $this->actingAs($this->user)
+        ->post(route('assessment.submit', ['OY_MSI', $attempt->id]), ['answers' => $answers])
+        ->assertRedirect();
+
+    expect($attempt->fresh()->status)->toBe('submitted');
+
+    // oymsi_attempt:{code} 세션 키는 제출 후에도 지워지지 않는다 — 그 값으로 profile.submit 을
+    // 다시 때려 이미 채점·공유됐을 수 있는 attempt 의 식별 라벨을 바꾸려는 시도.
+    $this->actingAs($this->user)
+        ->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '침입자', 'gender' => 'female'])
+        ->assertStatus(409);
+
+    expect($attempt->fresh()->nickname)->toBe('민수');
+    expect($attempt->fresh()->gender)->toBe('male');
+});
+
 test('링크 경로는 담당자 명부 이름과 청소년 닉네임을 분리 저장한다', function () {
     $voucher = Voucher::create([
         'user_id' => $this->user->id, 'test_id' => $this->test->id,
