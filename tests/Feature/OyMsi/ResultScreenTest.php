@@ -19,27 +19,7 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-function completedAttempt(array $overrides = [], ?User $user = null): TestAttempt
-{
-    $test = Test::where('code', 'OY_MSI')->with('items')->firstOrFail();
-    $attempt = TestAttempt::create([
-        'test_id' => $test->id, 'user_id' => $user?->id, 'guest_token' => $user ? null : 'g',
-        'status' => 'submitted', 'started_at' => now(), 'submitted_at' => now(),
-        'nickname' => '민수', 'gender' => 'male', 'age_at_test' => 16,
-        'assessment_version' => $test->assessment_version,
-        'scoring_version' => $test->scoringRule->version,
-    ]);
-    foreach ($test->items as $item) {
-        $raw = $overrides[$item->item_code] ?? 0;
-        $attempt->answers()->create([
-            'test_item_id' => $item->id,
-            'value' => $raw, 'missing_code' => null,
-        ]);
-    }
-    app(ScoringService::class)->score($attempt);
-
-    return $attempt->fresh();
-}
+// completedAttempt() 는 Task 18(ShareTest)에서도 쓰므로 tests/Pest.php 로 옮겼다.
 
 /** 중첩 배열 전체에서 특정 키의 값을 모아 온다 (누출 검사용) */
 function collectKeyDeep(array $data, string $key): array

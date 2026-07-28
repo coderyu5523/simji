@@ -48,3 +48,34 @@ function something()
 {
     // ..
 }
+
+/**
+ * OY_MSI 채점까지 끝난 응시 1건을 만든다.
+ *
+ * 원래 ResultScreenTest.php 안에 있었으나 Task 18(공유) 테스트에서도 같은 픽스처가
+ * 필요해졌다. Pest 의 전역 함수는 파일마다 다시 정의할 수 없으므로 여기로 옮겼다.
+ *
+ * $overrides 는 item_code => 원점수. 지정하지 않은 문항은 전부 0점이다.
+ * $user 가 null 이면 guest_token='g' 인 비회원 응시가 된다.
+ */
+function completedAttempt(array $overrides = [], ?App\Models\User $user = null): App\Models\TestAttempt
+{
+    $test = App\Models\Test::where('code', 'OY_MSI')->with('items')->firstOrFail();
+    $attempt = App\Models\TestAttempt::create([
+        'test_id' => $test->id, 'user_id' => $user?->id, 'guest_token' => $user ? null : 'g',
+        'status' => 'submitted', 'started_at' => now(), 'submitted_at' => now(),
+        'nickname' => '민수', 'gender' => 'male', 'age_at_test' => 16,
+        'assessment_version' => $test->assessment_version,
+        'scoring_version' => $test->scoringRule->version,
+    ]);
+    foreach ($test->items as $item) {
+        $raw = $overrides[$item->item_code] ?? 0;
+        $attempt->answers()->create([
+            'test_item_id' => $item->id,
+            'value' => $raw, 'missing_code' => null,
+        ]);
+    }
+    app(App\Services\ScoringService::class)->score($attempt);
+
+    return $attempt->fresh();
+}

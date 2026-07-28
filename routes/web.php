@@ -14,6 +14,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\LinkController;
 use App\Http\Controllers\OyMsi\AgeGateController;
 use App\Http\Controllers\OyMsi\ProfileStepController;
+use App\Http\Controllers\OyMsi\ShareController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -56,6 +57,17 @@ Route::middleware('auth')->controller(AssessmentController::class)->prefix('asse
 });
 
 Route::get('/result/{attempt}', [ResultController::class, 'show'])->name('result.show');
+
+// 보호자용 결과 공유 — 발급·철회는 응시자 본인(로그인 필수)
+Route::middleware('auth')->controller(ShareController::class)
+    ->prefix('result/{attempt}/share')->name('oymsi.share.')->group(function () {
+        Route::get('/', 'form')->name('form');
+        Route::post('/', 'create')->name('create');
+        Route::post('revoke', 'revoke')->name('revoke');
+    });
+
+// 공유 링크 열람 — 로그인 불필요. 만료·철회·미존재 토큰은 전부 404(ShareController::view)
+Route::get('/r/{token}', [ShareController::class, 'view'])->name('oymsi.share.view');
 
 // 링크 수신자용 연령 게이트 (로그인 불필요 — landing 보다 앞선 단계)
 Route::controller(AgeGateController::class)->prefix('t/{token}')->name('link.age.')->group(function () {
