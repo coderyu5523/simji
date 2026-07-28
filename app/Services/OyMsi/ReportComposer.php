@@ -28,6 +28,30 @@ class ReportComposer
     /** Task 15 시더가 쓰는 로케일 */
     private const LOCALE = 'ko-KR';
 
+    /**
+     * audience 별로 **의도적으로 제외**하는 실천 솔루션. [audience => [코드 => 제외 이유]]
+     *
+     * ★ 이것은 "문안을 못 찾아 빠진 것"이 아니라 "수신자가 달라서 뺀 것"이다.
+     *   조회 실패는 solutionsSection()/text() 가 예외로 드러낸다.
+     *
+     * SOL_FAM_PROTECT (2026-07-28 결정) — 이 카드는 통째로 보호자 화면에서 뺀다.
+     *   · 제목이 "보호자 안전성 평가·중재"(scoring_rules.solutions)다. 읽는 보호자를
+     *     안전성 평가의 대상으로 지목한다.
+     *   · 실천항목(solution.SOL_FAM_PROTECT.steps)도 "상담자나 믿을 수 있는 어른에게
+     *     가족상황 말하기" 처럼 **청소년이 할 행동**이다. 제목만 가려도 보호자에게는
+     *     "아이가 외부에 가족 상황을 알리도록 안내받고 있다"로 읽혀 문제가 남는다.
+     *   · 두 문안 모두 보호자용이 아니므로, 문장을 지어내지 않고 해결하는 유일한 방법이
+     *     카드 하나를 빼는 것이다. **청소년 화면에는 그대로 나온다**(수신자가 맞다).
+     *   · 엔진·scoring_rules 는 건드리지 않는다 — 채점 결과(engine_result.solutions)에는
+     *     이 코드가 그대로 남고, 제외는 이 조립 계층에서만 일어난다.
+     *   · 보호자용 제목·실천항목이 저자에게서 오면 이 제외를 풀 수 있다(리포트 저자 확인 목록).
+     */
+    private const SOLUTIONS_EXCLUDED_BY_AUDIENCE = [
+        'GUARDIAN' => [
+            'SOL_FAM_PROTECT' => '제목·실천항목이 각각 전문가용·청소년용이라 보호자 수신자에 맞지 않는다',
+        ],
+    ];
+
     /** @var array<string, string> */
     private array $cache = [];
 
@@ -48,7 +72,7 @@ class ReportComposer
             $this->factorsSection($engine, $rules),
             $this->prioritySection($engine, $rules, $audience),
             $this->strengthSection($engine),
-            $this->solutionsSection($engine, $rules),
+            $this->solutionsSection($engine, $rules, $audience),
             $this->recheckSection($engine),
             $this->disclaimerSection($audience),
         ]));
@@ -168,15 +192,47 @@ class ReportComposer
     }
 
     // 6. 실천 솔루션
-    private function solutionsSection(array $engine, array $rules): array
+    //
+    // ★ audience 별 제외는 **의도된 것**이며 조회 실패와 구분된다.
+    //   - 제외: SOLUTIONS_EXCLUDED_BY_AUDIENCE 에 코드와 이유가 적혀 있고, 결과 섹션의
+    //     'excluded_for_audience' 에 그 코드가 남는다(무엇이 왜 빠졌는지 추적 가능).
+    //   - 조회 실패: scoring_rules 에 없는 코드는 예외를 던진다. 엔진이 낸 코드가 규칙에
+    //     없다는 것은 데이터 사고이므로 조용히 건너뛰지 않는다.
+    private function solutionsSection(array $engine, array $rules, string $audience): ?array
     {
-        return [
-            'type' => 'SOLUTIONS',
-            'items' => array_map(fn ($code) => [
+        $excluded = self::SOLUTIONS_EXCLUDED_BY_AUDIENCE[$audience] ?? [];
+        $items = [];
+        $dropped = [];
+
+        foreach ($engine['solutions'] as $code) {
+            if (isset($excluded[$code])) {
+                $dropped[] = $code;           // 수신자 불일치로 뺀 것 — 상수에 이유가 있다
+                continue;
+            }
+            if (!isset($rules['solutions'][$code])) {
+                throw new RuntimeException(
+                    "scoring_rules.solutions 에 솔루션 코드 {$code} 가 없습니다 — 엔진이 낸 코드를 조립할 수 없습니다."
+                );
+            }
+            $items[] = [
                 'code' => $code,
                 'title' => $rules['solutions'][$code]['title'],
                 'steps' => $this->bulletLines("solution.{$code}.steps"),
-            ], $engine['solutions']),
+            ];
+        }
+
+        // 남는 카드가 하나도 없으면 섹션 자체를 넣지 않는다 — 제목만 있고 내용이 없는
+        // 빈 블록을 화면에 남기지 않기 위해서다(safetySection 이 S0·E0 에서 null 을
+        // 돌려주는 것과 같은 처리). 대체 문구를 지어내지 않는다.
+        // 실제 도달 가능성은 task-18b 리포트 §14 참조(FAM 이 유일한 채점가능 요인일 때).
+        if ($items === []) {
+            return null;
+        }
+
+        return [
+            'type' => 'SOLUTIONS',
+            'items' => $items,
+            'excluded_for_audience' => $dropped,
         ];
     }
 
