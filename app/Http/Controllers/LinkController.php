@@ -82,25 +82,47 @@ class LinkController extends Controller
             );
         }
 
-        $attempt = TestAttempt::create([
-            'user_id' => null,
-            'guest_token' => $this->guestToken($request),
-            'test_id' => $voucher->test_id,
-            'voucher_id' => $voucher->id,
-            'status' => 'in_progress',
-            'started_at' => now(),
-            'age_at_test' => $age,
-            'assessment_version' => $test->assessment_version,
-            'scoring_version' => $test->scoringRule?->version,
-        ]);
+        $guestToken = $this->guestToken($request);
+
+        // 시작 폼 재제출(뒤로가기·새로고침)로 attempt 와 동의행이 쌓이지 않게, 같은 검사권·같은 기기의
+        // 아직 제출하지 않은 attempt 는 재사용한다. 동의 기록은 법적 증거라 구분 불가한 중복행이
+        // 특히 나쁘다 — 개인 경로가 Task 12 에서 같은 이유로 재사용으로 고쳤고, 링크 경로도 이제
+        // 동의를 기록하므로 같은 기준이 적용된다.
+        $attempt = TestAttempt::where('voucher_id', $voucher->id)
+            ->where('guest_token', $guestToken)
+            ->where('status', 'in_progress')
+            ->latest('id')->first();
+
+        if ($attempt) {
+            // 재사용 시에도 나이는 다시 채운다(개인 경로 agree() 재사용 분기와 같은 이유).
+            if ($age !== null && $attempt->age_at_test !== $age) {
+                $attempt->update(['age_at_test' => $age]);
+            }
+        } else {
+            $attempt = TestAttempt::create([
+                'user_id' => null,
+                'guest_token' => $guestToken,
+                'test_id' => $voucher->test_id,
+                'voucher_id' => $voucher->id,
+                'status' => 'in_progress',
+                'started_at' => now(),
+                'age_at_test' => $age,
+                'assessment_version' => $test->assessment_version,
+                'scoring_version' => $test->scoringRule?->version,
+            ]);
+        }
 
         if ($test->consent_required) {
-            $consents->record($attempt, \App\Services\OyMsi\ConsentGate::SENSITIVE, 'youth');
+            // 동의 타입별로 "없을 때만" 남긴다 — 재사용 attempt 에 같은 동의가 두 번 쌓이지 않는다.
+            if (!$consents->has($attempt, \App\Services\OyMsi\ConsentGate::SENSITIVE)) {
+                $consents->record($attempt, \App\Services\OyMsi\ConsentGate::SENSITIVE, 'youth');
+            }
 
             // 만 14세 미만이 여기까지 왔다는 건 발급 기관 담당자가 법정대리인 동의를
             // 오프라인으로 확인했다는 뜻이다. 그 사실을 기록으로 남긴다 —
             // 남기지 않으면 ConsentGate 가 곧바로 403 을 던져 통과 자체가 불가능해진다.
-            if ($test->needsGuardianConsentFor($age)) {
+            if ($test->needsGuardianConsentFor($age)
+                && !$consents->has($attempt, \App\Services\OyMsi\ConsentGate::GUARDIAN_OFFLINE)) {
                 $consents->record(
                     $attempt,
                     \App\Services\OyMsi\ConsentGate::GUARDIAN_OFFLINE,

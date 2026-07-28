@@ -103,6 +103,24 @@ test('링크 경로 · 만 13세 · 담당자 확인 있으면 통과하고 동�
     $this->get(route('link.take', ['tok13ok', $attempt->id]))->assertOk();
 });
 
+test('링크 start 를 여러 번 제출해도 attempt 와 동의기록이 하나씩만 생긴다', function () {
+    $voucher = ageGateVoucher($this->test, $this->user, 'tok-dup', guardianConfirmed: true);
+
+    $this->post(route('link.age.submit', 'tok-dup'), ['birthdate' => birthdateForAge(13)]);
+    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
+    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
+    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
+
+    expect(TestAttempt::where('voucher_id', $voucher->id)->count())->toBe(1);
+
+    $attempt = TestAttempt::where('voucher_id', $voucher->id)->firstOrFail();
+    expect(ConsentRecord::where('attempt_id', $attempt->id)
+        ->where('consent_type', ConsentGate::SENSITIVE)->count())->toBe(1);
+    expect(ConsentRecord::where('attempt_id', $attempt->id)
+        ->where('consent_type', ConsentGate::GUARDIAN_OFFLINE)->count())->toBe(1);
+    expect(ConsentRecord::count())->toBe(2);
+});
+
 test('링크 경로 · 만 13세 · 담당자 확인 없으면 차단된다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok13no');
 

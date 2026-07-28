@@ -49,6 +49,9 @@ test('consent_required 검사는 나이를 확인해도 동의 체크 없이는 
     expect($voucher->fresh()->status)->toBe('active');
 });
 
+// 아래 두 건은 "SENSITIVE 동의가 없으면 막힌다"를 지키는 테스트다. Task 13 의 나이 가드가
+// 동의 검사보다 앞에 서므로, age_at_test 를 채워 나이 사유로 403 이 나는 것을 배제해야
+// 동의 사유로 막혔음을 실제로 검증할 수 있다. (안 채우면 동의 검사를 지워도 초록불이 된다.)
 test('동의 없이 직접 만든 링크 attempt 로는 take 에 들어갈 수 없다', function () {
     $voucher = makeOyMsiVoucher($this->test, $this->issuer, 'tok-take-block');
 
@@ -56,7 +59,7 @@ test('동의 없이 직접 만든 링크 attempt 로는 take 에 들어갈 수 �
     $attempt = TestAttempt::create([
         'user_id' => null, 'guest_token' => 'guest-take',
         'test_id' => $this->test->id, 'voucher_id' => $voucher->id,
-        'status' => 'in_progress', 'started_at' => now(),
+        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
     ]);
 
     $this->withSession(['guest_token' => 'guest-take'])
@@ -70,7 +73,7 @@ test('동의 없이 링크 submit 을 직접 호출해도 차단되고 검사권
     $attempt = TestAttempt::create([
         'user_id' => null, 'guest_token' => 'guest-submit',
         'test_id' => $this->test->id, 'voucher_id' => $voucher->id,
-        'status' => 'in_progress', 'started_at' => now(),
+        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
     ]);
 
     $answers = [];
