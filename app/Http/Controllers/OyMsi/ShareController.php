@@ -7,6 +7,7 @@ use App\Models\ReportShare;
 use App\Models\TestAttempt;
 use App\Services\OyMsi\ReportComposer;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
 /**
@@ -26,6 +27,7 @@ use Illuminate\Support\Str;
  *     · 채점 결과가 없으면 404
  *     · 발급자가 열람을 막아둔 결과(voucher.result_visible=false)는 발급도 열람도 불가.
  *       ResultController::show 의 열람 통제와 같은 기준이고, 이미 나간 링크도 그 시점에 닫힌다.
+ *       단 **철회(revoke)는 예외로 언제나 허용**한다 — revoke() 주석 참조.
  *  7. attempt 당 살아 있는 링크는 하나다. 이미 유효한 링크가 있으면 새로 만들지 않고
  *     그것을 다시 보여준다(중복 제출로 유출 대상 비밀이 늘어나지 않게).
  */
@@ -37,6 +39,9 @@ class ShareController extends Controller
     public function form(Request $request, TestAttempt $attempt)
     {
         $this->authorizeOwner($request, $attempt);
+        if ($blocked = $this->blockedResponse($attempt)) {
+            return $blocked;
+        }
         $engine = $attempt->result->engine_result;
 
         return view('oymsi.share-form', [
@@ -49,6 +54,9 @@ class ShareController extends Controller
     public function create(Request $request, TestAttempt $attempt)
     {
         $this->authorizeOwner($request, $attempt);
+        if ($blocked = $this->blockedResponse($attempt)) {
+            return $blocked;
+        }
 
         $share = $this->activeShare($attempt) ?? ReportShare::create([
             'attempt_id' => $attempt->id,
@@ -66,9 +74,20 @@ class ShareController extends Controller
         ]);
     }
 
+    /**
+     * ★ 철회에는 isShareable(열람 공개 여부) 가드를 걸지 않는다.
+     *
+     * 기관이 결과를 '대기'로 되돌린 사이에도 청소년은 자기가 만든 링크를 취소할 수 있어야
+     * 한다. 막아 두면, 기관이 다시 공개하는 순간 청소년이 취소할 기회를 한 번도 갖지 못한 채
+     * 옛 링크가 되살아난다. 화면이 한 약속("언제든 공유를 취소할 수 있어")과도 어긋난다.
+     * 철회는 언제나 안전한 방향의 동작이므로 소유권과 대상 확인만 하고 통과시킨다.
+     */
     public function revoke(Request $request, TestAttempt $attempt)
     {
         $this->authorizeOwner($request, $attempt);
+        if ($blocked = $this->blockedResponse($attempt, requireShareable: false)) {
+            return $blocked;
+        }
         $attempt->shares()->whereNull('revoked_at')->update(['revoked_at' => now()]);
 
         return redirect()->route('result.show', $attempt->id);
@@ -101,15 +120,48 @@ class ShareController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     }
 
+    /**
+     * 이 attempt 의 공유 화면에 들어올 자격 자체가 있는가.
+     * 여기서 막히는 건 URL 을 직접 건드린 경우뿐이라 기본 오류 화면으로 둔다.
+     */
     private function authorizeOwner(Request $request, TestAttempt $attempt): void
     {
         $attempt->loadMissing('result', 'voucher', 'test');
 
         abort_unless($attempt->isOwnedBy($request), 403);
-        // 공유 대상이 아닌 검사(전용 문안·안전등급 구조가 없다)와 미채점 응시는 닫는다.
+        // 공유 대상이 아닌 검사 — 전용 문안·안전등급 구조가 없어 조립 자체가 불가능하다.
         abort_unless($attempt->test->scoring_engine === 'oy_msi', 404);
-        abort_unless($attempt->result, 404);
-        abort_unless($this->isShareable($attempt), 403);
+    }
+
+    /**
+     * 차단 사유가 있으면 "왜 막혔는지 보이는" 화면을 돌려준다. 통과면 null.
+     *
+     * 상태코드(404/403)는 그대로 유지한다 — 차단을 푸는 게 아니라, 위기 상태일 수 있는
+     * 청소년이 공유를 시도했을 때 프레임워크 기본 오류 페이지를 마주하지 않게 하는 것이다.
+     * (기존 ResultController::show 가 같은 조건에서 result.pending 안내를 주는 것과 같은 결.)
+     *
+     * $requireShareable=false — 철회 경로. revoke() 주석 참조.
+     */
+    private function blockedResponse(TestAttempt $attempt, bool $requireShareable = true): ?Response
+    {
+        if ($attempt->result === null) {
+            return $this->unavailable($attempt, 'not_scored', 404);
+        }
+
+        if ($requireShareable && !$this->isShareable($attempt)) {
+            return $this->unavailable($attempt, 'result_hidden', 403);
+        }
+
+        return null;
+    }
+
+    private function unavailable(TestAttempt $attempt, string $reason, int $status): Response
+    {
+        return response()->view('oymsi.share-unavailable', [
+            'attempt' => $attempt,
+            'test' => $attempt->test,
+            'reason' => $reason,
+        ], $status);
     }
 
     /**
@@ -133,9 +185,11 @@ class ShareController extends Controller
 
     /**
      * spec §5.3 — 자살안전 S2 이상 또는 환경위험 E2 이상이면 공유보다 연결이 먼저다.
-     * 환경축을 포함하는 이유: 환경위험은 가정 내 폭력·학대를 포함하므로
-     * (006 E2 문안이 직접 "가해 가능성이 있는 보호자에게 성급하게 알리지 않습니다" 라고 쓴다)
+     * 환경축을 포함하는 이유: 환경위험 발동 문항에는 가정 내 폭력·학대가 포함되고
+     * (003 Ⅴ.3 은 이 경우 보호자 통보가 위험을 높일 수 있음을 담당자 지침으로 명시한다)
      * 이때 보호자 공유를 1순위로 들이미는 것이 오히려 위험을 키울 수 있다.
+     * 반대로 같은 축에 학교폭력·온라인 성착취·급성중독처럼 가정 밖 출처도 있으므로
+     * 공유를 일괄 차단하지는 않는다 — 도와줄 수 있는 보호자까지 끊긴다.
      */
     private function needsContactFirst(array $engine): bool
     {

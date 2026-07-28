@@ -225,6 +225,70 @@ test('발급자가 열람을 막아둔 결과는 공유할 수 없고 이미 만
     $this->get(route('oymsi.share.view', $share->token))->assertNotFound();
 });
 
+// ── Important 2 — 철회는 열람 비공개 상태에서도 언제나 가능하다 ─────────────
+
+test('열람이 비공개로 바뀌어도 청소년은 자기 링크를 철회할 수 있다', function () {
+    // 막아 두면, 기관이 다시 공개하는 순간 청소년이 취소할 기회를 갖지 못한 채
+    // 옛 링크가 되살아난다.
+    $test = Test::where('code', 'OY_MSI')->firstOrFail();
+    $issuer = User::factory()->create();
+    $voucher = Voucher::create([
+        'user_id' => $issuer->id, 'test_id' => $test->id, 'status' => 'used',
+        'source' => 'purchase', 'issued_at' => now(), 'expires_at' => now()->addYear(),
+        'result_visible' => true,
+    ]);
+    $attempt = completedAttempt([], $this->user);
+    $attempt->update(['voucher_id' => $voucher->id]);
+
+    $this->actingAs($this->user)->post(route('oymsi.share.create', $attempt->id))->assertOk();
+    $share = ReportShare::where('attempt_id', $attempt->id)->firstOrFail();
+
+    // 기관이 비공개로 되돌린다 → 링크는 이미 404 지만 철회는 여전히 가능해야 한다
+    $voucher->update(['result_visible' => false]);
+    $this->actingAs($this->user)
+        ->post(route('oymsi.share.revoke', $attempt->id))
+        ->assertRedirect();
+    expect($share->fresh()->revoked_at)->not->toBeNull();
+
+    // 기관이 다시 공개해도 철회된 링크는 되살아나지 않는다
+    $voucher->update(['result_visible' => true]);
+    $this->get(route('oymsi.share.view', $share->token))->assertNotFound();
+});
+
+// ── Important 3 — 차단은 유지하되 이유가 보이는 화면 ────────────────────────
+
+test('미채점이면 이유가 보이는 안내 화면이 나온다 (404 유지)', function () {
+    $test = Test::where('code', 'OY_MSI')->firstOrFail();
+    $attempt = TestAttempt::create([
+        'test_id' => $test->id, 'user_id' => $this->user->id,
+        'status' => 'in_progress', 'started_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('oymsi.share.form', $attempt->id))
+        ->assertNotFound()                          // 차단은 그대로
+        ->assertSee('아직 결과가 준비되지 않았어')   // 이유가 보인다
+        ->assertSee('1388');
+});
+
+test('열람 대기면 이유가 보이는 안내 화면이 나온다 (403 유지)', function () {
+    $test = Test::where('code', 'OY_MSI')->firstOrFail();
+    $issuer = User::factory()->create();
+    $voucher = Voucher::create([
+        'user_id' => $issuer->id, 'test_id' => $test->id, 'status' => 'used',
+        'source' => 'purchase', 'issued_at' => now(), 'expires_at' => now()->addYear(),
+        'result_visible' => false,
+    ]);
+    $attempt = completedAttempt([], $this->user);
+    $attempt->update(['voucher_id' => $voucher->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('oymsi.share.form', $attempt->id))
+        ->assertForbidden()                          // 차단은 그대로
+        ->assertSee('지금은 결과를 공유할 수 없어')   // 이유가 보인다
+        ->assertSee('1388');
+});
+
 // ── S2 이상 분기 (spec §5.3) ────────────────────────────────────────────────
 
 test('S0·E0 이면 공유 화면은 연결 안내가 아니라 공유 버튼을 먼저 보여준다', function () {
@@ -327,6 +391,15 @@ test('보호자 화면에 내부 솔루션 코드가 노출되지 않는다', fu
 
 // ── 인계 ④ ENV(환경위험) 문안 노출 위치 ────────────────────────────────────
 
+/** 공유 링크를 만들고 보호자 화면 HTML 을 돌려준다 ($t 는 테스트 케이스 자신) */
+function guardianHtml($t, TestAttempt $attempt, User $user): string
+{
+    $t->actingAs($user)->post(route('oymsi.share.create', $attempt->id));
+    $share = ReportShare::where('attempt_id', $attempt->id)->firstOrFail();
+
+    return $t->get(route('oymsi.share.view', $share->token))->assertOk()->getContent();
+}
+
 test('환경위험 보호자 문안은 안전 섹션 안에서만 렌더된다', function () {
     $attempt = completedAttempt(['TRM06' => 3], $this->user);   // E3, S0
     $this->actingAs($this->user)->post(route('oymsi.share.create', $attempt->id));
@@ -334,12 +407,74 @@ test('환경위험 보호자 문안은 안전 섹션 안에서만 렌더된다',
 
     $html = $this->get(route('oymsi.share.view', $share->token))
         ->assertOk()
-        ->assertSee('현재 폭력·학대·성착취 또는 급성중독 등으로 청소년이 안전하지 않을 가능성이 확인되었습니다. 즉시 안전확보와 보호절차가 필요합니다.')
+        ->assertSee('주변 환경과 관련해 확인이 필요한 응답이 있었습니다.')
         ->assertSee('주변 환경 안전')
         ->getContent();
 
     // 안전 섹션(맨 위) 안이다 — 종합 블록보다 앞
     expect(mb_strpos($html, '주변 환경 안전'))->toBeLessThan(mb_strpos($html, '종합 마음상태'));
+});
+
+// ── Critical 1 — 보호자 화면에 상담자용 보호절차 지침이 없다 ────────────────
+
+test('보호자 화면에 담당자용 보호절차 지침이 나오지 않는다', function () {
+    // E2·E3 — 교체 전 문안에 있던 담당자 프로토콜 문장들. 수신자가 보호자가 아니다.
+    foreach ([2, 3] as $raw) {
+        $attempt = completedAttempt(['TRM06' => $raw], $this->user);
+        $html = guardianHtml($this, $attempt, $this->user);
+
+        foreach ([
+            '가해 가능성이 있는 보호자',
+            '보호자 통보가 위험을 높일 가능성',
+            '증거를 보존하고',
+            '신고·보호절차',
+            '가해 가능성이 있는 사람과 청소년을 분리',
+            '비공개 면담',
+        ] as $staffOnly) {
+            expect($html)->not->toContain($staffOnly);
+        }
+    }
+});
+
+test('S0+E3 에서 안전 패널이 안심 문구만 남지 않는다', function () {
+    // ★ 이번 수정의 핵심 회귀 방어.
+    // 안전 패널은 S·E 두 축의 문안을 함께 조회한다. E 블록을 비우면 S0 문안
+    // ("자해·자살과 관련한 뚜렷한 위험은 확인되지 않았습니다") 한 줄만 남아
+    // 빨간 경보 패널이 안심 문구로 뒤집힌다.
+    $attempt = completedAttempt(['TRM06' => 3], $this->user);
+    expect($attempt->result->engine_result['safety']['suicide_level'])->toBe('S0');
+    expect($attempt->result->engine_result['safety']['environment_level'])->toBe('E3');
+
+    $html = guardianHtml($this, $attempt, $this->user);
+
+    expect($html)->toContain('자해·자살과 관련한 뚜렷한 위험은 확인되지 않았습니다');   // S0 문안
+    expect($html)->toContain('주변 환경 안전');                                        // 소제목 유지
+    expect($html)->toContain('전문기관의 상담을 받아 보시기를 권합니다');               // 중립 안내
+    expect($html)->toContain('1388');
+
+    // 안심 문구가 중립 안내보다 앞이지만, 패널이 거기서 끝나지 않는다
+    expect(mb_strpos($html, '주변 환경 안전'))
+        ->toBeGreaterThan(mb_strpos($html, '자해·자살과 관련한 뚜렷한 위험은 확인되지 않았습니다'));
+});
+
+test('환경위험이 없으면 보호자 화면에 상담 권고가 붙지 않는다', function () {
+    // S2 + E0 — 패널은 뜨지만 환경축은 신호가 없다. 없는 위험을 있는 것처럼 쓰지 않는다.
+    $attempt = completedAttempt(['SAF01' => 2], $this->user);
+    expect($attempt->result->engine_result['safety']['environment_level'])->toBe('E0');
+
+    $html = guardianHtml($this, $attempt, $this->user);
+    expect($html)->toContain('주변 환경과 관련한 안전 신호는 나타나지 않았습니다');
+    expect($html)->not->toContain('전문기관의 상담을 받아 보시기를 권합니다');
+});
+
+test('청소년용 환경위험 문안은 그대로 남아 있다', function () {
+    // 수신자가 맞는 쪽(청소년 본인)은 손대지 않았다.
+    $attempt = completedAttempt(['TRM06' => 3], $this->user);
+    $this->actingAs($this->user)
+        ->get(route('result.show', $attempt->id))
+        ->assertOk()
+        ->assertSee('지금 네 안전이 위험할 수 있어. 즉시 안전한 곳을 확보하고 도움을 받아야 해.')
+        ->assertSee('청소년쉼터, 1388, 경찰 또는 보호기관 도움받기');
 });
 
 // ── 보호자 화면 자체 ────────────────────────────────────────────────────────
