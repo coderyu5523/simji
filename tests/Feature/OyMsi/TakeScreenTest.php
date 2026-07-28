@@ -72,3 +72,76 @@ test('기존 5점 검사 화면은 그대로 동작한다 (회귀)', function ()
         ->get(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]))
         ->assertOk();
 });
+
+// Fix round 1 — Critical 1: options 가 없는 기존 검사의 보기 라벨이 한글에서 숫자(1~5)로
+// 퇴행했었다. AssessmentTakeTest 는 문항 텍스트만 확인해서 라벨이 사라져도 통과했다.
+// 재발 방지를 위해 한글 라벨을 직접 고정한다.
+test('기존 5점 검사는 숫자가 아니라 한글 라벨로 렌더된다 (회귀 — Critical 1)', function () {
+    (new Database\Seeders\SampleTestSeeder())->run();
+    $sample = Test::where('code', 'KMSIA-SAMPLE')->with('items')->firstOrFail();
+    $attempt = TestAttempt::create([
+        'test_id' => $sample->id, 'user_id' => $this->user->id,
+        'status' => 'in_progress', 'started_at' => now(),
+    ]);
+
+    $res = $this->actingAs($this->user)
+        ->get(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]));
+    $res->assertOk();
+    $res->assertSee('전혀 아니다');
+    $res->assertSee('아니다');
+    $res->assertSee('보통');
+    $res->assertSee('그렇다');
+    $res->assertSee('매우 그렇다');
+});
+
+// Fix round 1 — Important 3/4: 모달 마크업·안전 스크립트가 OY_MSI 화면에는 있고
+// 기존 5점 검사 화면에는 없어야 한다 (scoring_engine 분기 확인 + 조용한 누락 방지).
+test('OY_MSI 응시 화면에는 안전 모달과 안전 스크립트가 렌더된다', function () {
+    $this->actingAs($this->user)
+        ->get(route('assessment.take', ['OY_MSI', $this->attempt->id]))
+        ->assertSee('id="safety-modal"', false)
+        ->assertSee('attachSafetyAlert', false);
+});
+
+test('기존 5점 검사 화면에는 안전 모달이 없다 (회귀)', function () {
+    (new Database\Seeders\SampleTestSeeder())->run();
+    $sample = Test::where('code', 'KMSIA-SAMPLE')->with('items')->firstOrFail();
+    $attempt = TestAttempt::create([
+        'test_id' => $sample->id, 'user_id' => $this->user->id,
+        'status' => 'in_progress', 'started_at' => now(),
+    ]);
+
+    $res = $this->actingAs($this->user)
+        ->get(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]));
+    $res->assertOk();
+    $res->assertDontSee('safety-modal', false);
+    $res->assertDontSee('attachSafetyAlert', false);
+});
+
+// Fix round 1 — Important 5: OY_MSI 문항인데 options 시딩이 누락되면 조용히 1~5로
+// 렌더하지 않고 예외를 던져야 한다 (SAF 문항이면 0-based 안전등급 계산이 조용히 틀어짐).
+test('OY_MSI 문항에 options 가 없으면 조용히 1~5로 렌더하지 않고 예외를 던진다', function () {
+    $item = $this->test->items->firstWhere('item_code', 'DEP01');
+    $item->update(['options' => null]);
+
+    $this->withoutExceptionHandling();
+
+    $thrown = null;
+    try {
+        $this->actingAs($this->user)
+            ->get(route('assessment.take', ['OY_MSI', $this->attempt->id]));
+    } catch (\Throwable $e) {
+        $thrown = $e;
+    }
+
+    // Blade 뷰 안에서 던진 예외는 Illuminate\View\ViewException 으로 감싸져 올라온다.
+    // 실제 원인(previous)이 우리가 던진 RuntimeException 이고 메시지가 맞는지 확인한다.
+    expect($thrown)->not->toBeNull();
+    $root = $thrown;
+    while ($root->getPrevious() !== null) {
+        $root = $root->getPrevious();
+    }
+    expect($root)->toBeInstanceOf(\RuntimeException::class);
+    expect($root->getMessage())->toContain('DEP01');
+    expect($root->getMessage())->toContain('options가 없습니다');
+});

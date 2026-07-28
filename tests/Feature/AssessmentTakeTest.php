@@ -18,6 +18,22 @@ test('take page renders all items', function () {
         ->assertOk()->assertSee('요즘 사소한 일에도');
 });
 
+// Fix round 1 (Task 16 review) — Critical 1: options 없는 문항의 5점 척도 보기 라벨이
+// 한글에서 숫자(1~5)로 조용히 퇴행했었다. 문항 텍스트만으로는 라벨 소실을 못 잡으므로
+// 보기 라벨 자체를 고정한다.
+test('take page renders korean scale labels, not bare numbers', function () {
+    $user = User::factory()->create();
+    [$test, $attempt] = makeAttempt($user);
+    $res = $this->actingAs($user)
+        ->get("/assessment/KMSIA-SAMPLE/take/{$attempt->id}");
+    $res->assertOk();
+    $res->assertSee('전혀 아니다');
+    $res->assertSee('아니다');
+    $res->assertSee('보통');
+    $res->assertSee('그렇다');
+    $res->assertSee('매우 그렇다');
+});
+
 test('submit stores answers, scores, and redirects to result', function () {
     $user = User::factory()->create();
     [$test, $attempt] = makeAttempt($user);

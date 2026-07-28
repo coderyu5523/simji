@@ -28,7 +28,129 @@ function loadModule() {
   return mod.exports;
 }
 
-const { computeLevel, nextAlertState } = loadModule();
+const { computeLevel, nextAlertState, attachSafetyAlert } = loadModule();
+
+// ── attachSafetyAlert: 실제 DOM 배선(change 리스너 → hidden/flex 토글 → 문구 주입)을
+// jsdom 없이 최소 fake doc 스텁으로 고정한다. attachSafetyAlert(doc) 가 이미 doc 를
+// 주입받으므로 querySelectorAll/getElementById/classList/addEventListener 만 흉내내면 된다.
+function makeEl(id) {
+  const classes = new Set(['hidden']);
+  const listeners = [];
+  return {
+    id,
+    classes,
+    textContent: '',
+    classList: {
+      add: (c) => classes.add(c),
+      remove: (c) => classes.delete(c),
+      contains: (c) => classes.has(c),
+    },
+    addEventListener: (event, handler) => listeners.push({ event, handler }),
+    dispatch: (event) => listeners.filter((l) => l.event === event).forEach((l) => l.handler()),
+  };
+}
+
+/** @param {string[]} itemCodes SAF 문항 코드 목록 (문항당 input 하나씩 만든다) */
+function makeSafetyDom(itemCodes) {
+  const modal = makeEl('safety-modal');
+  const continueBtn = makeEl('safety-continue');
+  const title = makeEl('safety-title');
+  const body = makeEl('safety-body');
+  const byId = {
+    'safety-modal': modal,
+    'safety-continue': continueBtn,
+    'safety-title': title,
+    'safety-body': body,
+  };
+
+  const inputs = {};
+  const inputList = itemCodes.map((code) => {
+    const listeners = [];
+    const input = {
+      dataset: { itemCode: code },
+      value: null,
+      addEventListener: (event, handler) => listeners.push({ event, handler }),
+      dispatch: (value) => {
+        input.value = String(value);
+        listeners.filter((l) => l.event === 'change').forEach((l) => l.handler());
+      },
+    };
+    inputs[code] = input;
+    return input;
+  });
+
+  const doc = {
+    getElementById: (id) => byId[id] || null,
+    querySelectorAll: () => ({ forEach: (fn) => inputList.forEach(fn) }),
+  };
+
+  return { doc, modal, continueBtn, title, body, inputs };
+}
+
+test('attachSafetyAlert: 안전 모달이 없는 화면(기존 5점 검사)에서는 아무 것도 하지 않는다', () => {
+  const doc = { getElementById: () => null, querySelectorAll: () => ({ forEach: () => {} }) };
+  assert.doesNotThrow(() => attachSafetyAlert(doc));
+});
+
+test('attachSafetyAlert: SAF01=2(레벨2) → 모달이 뜬다 (hidden 제거, flex 추가, 문구 주입)', () => {
+  const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
+  attachSafetyAlert(dom.doc);
+
+  assert.equal(dom.modal.classes.has('hidden'), true, '처음엔 숨겨져 있어야 한다');
+
+  dom.inputs.SAF01.dispatch(2);
+
+  assert.equal(dom.modal.classes.has('hidden'), false);
+  assert.equal(dom.modal.classes.has('flex'), true);
+  assert.equal(dom.title.textContent, '지금 많이 힘든 것 같아');
+  assert.ok(dom.body.textContent.length > 0);
+});
+
+test('attachSafetyAlert: 같은 등급이 반복되면 다시 뜨지 않는다 (억제)', () => {
+  const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
+  attachSafetyAlert(dom.doc);
+
+  dom.inputs.SAF01.dispatch(2); // 레벨2 도달 → 표시
+  assert.equal(dom.modal.classes.has('hidden'), false);
+
+  // 사용자가 계속하기를 눌러 닫았다고 가정
+  dom.continueBtn.dispatch('click');
+  assert.equal(dom.modal.classes.has('hidden'), true);
+  assert.equal(dom.modal.classes.has('flex'), false);
+
+  // SAF02=2 를 답해도 여전히 레벨 2(억제 대상) → 다시 뜨면 안 된다
+  dom.inputs.SAF02.dispatch(2);
+  assert.equal(dom.modal.classes.has('hidden'), true, '같은 등급 반복이면 다시 열리면 안 된다');
+});
+
+test('attachSafetyAlert: 등급이 올라가면 다시 뜬다 (재표시) — 원본 문항단위 억제 버그 회귀 방지', () => {
+  const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
+  attachSafetyAlert(dom.doc);
+
+  dom.inputs.SAF01.dispatch(2); // 레벨2 → 표시
+  assert.equal(dom.modal.classes.has('hidden'), false);
+  dom.continueBtn.dispatch('click');
+  assert.equal(dom.modal.classes.has('hidden'), true);
+
+  dom.inputs.SAF02.dispatch(1); // 여전히 레벨2 → 억제
+  assert.equal(dom.modal.classes.has('hidden'), true);
+
+  dom.inputs.SAF04.dispatch(1); // 레벨3(S3) 로 상승 → 다시 표시
+  assert.equal(dom.modal.classes.has('hidden'), false, '등급 상승이면 다시 표시해야 한다');
+  assert.equal(dom.modal.classes.has('flex'), true);
+  assert.equal(dom.title.textContent, '지금 바로 도움이 필요해 보여');
+});
+
+test('attachSafetyAlert: 계속하기 버튼을 누르면 모달을 숨긴다', () => {
+  const dom = makeSafetyDom(['SAF01']);
+  attachSafetyAlert(dom.doc);
+  dom.inputs.SAF01.dispatch(2);
+  assert.equal(dom.modal.classes.has('hidden'), false);
+
+  dom.continueBtn.dispatch('click');
+  assert.equal(dom.modal.classes.has('hidden'), true);
+  assert.equal(dom.modal.classes.has('flex'), false);
+});
 
 // ── computeLevel: SafetyEvaluatorTest.php(tests/Feature/OyMsi/SafetyEvaluatorTest.php) 와
 // 같은 fixture 로 서버 SafetyEvaluator(S0~S3 문자열 등급)와 이 JS(0~3 숫자 등급)가 어긋나지

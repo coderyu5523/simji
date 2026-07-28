@@ -16,9 +16,19 @@
         @csrf
         @foreach($test->items as $item)
           @php
-            $options = is_array($item->options) && count($item->options)
-                ? collect($item->options)->map(fn ($label, $i) => ['value' => $i, 'label' => $label])->all()
-                : collect(range(1, 5))->map(fn ($v) => ['value' => $v, 'label' => (string) $v])->all();
+            $legacy5pt = ['전혀 아니다', '아니다', '보통', '그렇다', '매우 그렇다'];
+            if (is_array($item->options) && count($item->options)) {
+                $options = collect($item->options)->map(fn ($label, $i) => ['value' => $i, 'label' => $label])->all();
+            } elseif ($test->scoring_engine === 'oy_msi') {
+                // OY_MSI 문항은 반드시 4점 척도 options 를 갖는다(Task 2 시딩). 없으면 시딩 누락이고,
+                // 조용히 1~5로 렌더하면 SAF 문항의 0-based 값이 깨져 안전등급 계산이 조용히 틀어진다 — 드러낸다.
+                throw new \RuntimeException(
+                    "OY_MSI 문항 {$item->item_code}(id={$item->id})에 options가 없습니다 — ".
+                    '안전등급 계산이 어긋날 수 있어 1~5로 조용히 대체하지 않습니다.'
+                );
+            } else {
+                $options = collect(range(1, 5))->map(fn ($v) => ['value' => $v, 'label' => $legacy5pt[$v - 1]])->all();
+            }
             $isSafety = $item->area === 'SAF';
           @endphp
           <fieldset class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5" data-q>
@@ -30,7 +40,7 @@
               <p class="text-xs text-navy/45 mb-2 mt-2">최근 2주 동안을 기준으로 답해 줘</p>
             @endif
 
-            <div class="grid gap-1.5 mt-5 {{ count($options) === 4 ? 'grid-cols-4' : 'flex justify-between' }}">
+            <div class="gap-1.5 mt-5 {{ count($options) === 4 ? 'grid grid-cols-4' : 'flex justify-between' }}">
               @foreach($options as $opt)
                 <label class="flex-1 cursor-pointer">
                   <input type="radio" name="answers[{{ $item->id }}]" value="{{ $opt['value'] }}" class="peer sr-only js-answer" @if($isSafety) data-item-code="{{ $item->item_code }}" @endif required>
@@ -78,6 +88,15 @@
   {{-- resources/js/oymsi-safety-alert.js 를 그대로 인라인한다 (별도 정적 자산 URL이 아니므로
        브라우저 캐시로 인한 미반영 문제가 없다). 같은 파일을 tests/js/oymsi-safety-alert.test.js 가
        직접 검증하므로 화면 코드와 테스트 대상이 항상 같다. --}}
-  <script>{!! file_get_contents(resource_path('js/oymsi-safety-alert.js')) !!}</script>
+  @php
+    $safetyScriptPath = resource_path('js/oymsi-safety-alert.js');
+    $safetyScript = file_get_contents($safetyScriptPath);
+    if ($safetyScript === false) {
+        // 조용한 폴백 금지 — 안전 스크립트가 없으면 모달 마크업만 있고 영원히 안 뜨는
+        // 상태로 200 응답이 나가는 것이 가장 나쁘다. 드러낸다.
+        throw new \RuntimeException("안전 안내 스크립트 파일을 읽을 수 없습니다: {$safetyScriptPath}");
+    }
+  @endphp
+  <script>{!! $safetyScript !!}</script>
   @endif
 </x-layouts.app>
