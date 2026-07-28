@@ -1,8 +1,10 @@
 <?php
 use App\Models\ConsentRecord;
+use App\Models\Product;
 use App\Models\Test;
 use App\Models\TestAttempt;
 use App\Models\User;
+use App\Models\Voucher;
 use Database\Seeders\OyMsi\ScoringRuleSeeder;
 use Database\Seeders\OyMsi\TestSeeder;
 
@@ -82,4 +84,85 @@ test('consent_required 가 꺼진 기존 검사는 영향받지 않는다 (회�
     $this->actingAs($this->user)
         ->get(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]))
         ->assertOk();
+});
+
+// ── Fix round 1 추가분 ──────────────────────────────────────────────
+
+test('동의 없이 start 를 직접 호출해도 차단되고 attempt 가 생기지 않는다 (Important 6 — 주석이 명시한 위협)', function () {
+    // agree() 를 거치지 않은 깨끗한 세션으로 start() 를 바로 때린다 —
+    // AssessmentController::agree() 주석이 명시한 바로 그 우회 시나리오.
+    $this->actingAs($this->user)
+        ->post(route('assessment.start', 'OY_MSI'))
+        ->assertForbidden();
+
+    expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
+});
+
+test('동의 폼을 여러 번 제출해도 attempt 와 동의기록이 하나만 생긴다 (Important 7)', function () {
+    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+
+    expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(1);
+    expect(ConsentRecord::where('consent_type', 'sensitive')->count())->toBe(1);
+});
+
+test('제출 완료된 attempt 로 start 를 다시 호출해도 submitted 가 in_progress 로 되돌아가지 않는다 (Important 5 — 회귀)', function () {
+    $this->actingAs($this->user)
+        ->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $attempt = TestAttempt::where('test_id', $this->test->id)->latest('id')->first();
+    $attempt->update(['status' => 'submitted', 'submitted_at' => now()]);
+
+    $this->actingAs($this->user)
+        ->post(route('assessment.start', 'OY_MSI'))
+        ->assertStatus(409);
+
+    expect($attempt->fresh()->status)->toBe('submitted');
+});
+
+function oyMsiPaidConsentTest(): Test
+{
+    $t = Test::create([
+        'code' => 'PAC', 'room' => 'middle', 'title_easy' => '유료+동의 검사(테스트용)', 'title_pro' => 'PAC',
+        'target' => '테스트', 'duration_min' => 5, 'item_count' => 1, 'areas' => [],
+        'result_type' => 'signal', 'description' => 'd', 'status' => 'active',
+        'consent_required' => true,
+    ]);
+    Product::create(['test_id' => $t->id, 'name' => 'PAC 검사권', 'price' => 9900, 'credit_qty' => 1, 'valid_days' => 365, 'status' => 'active']);
+    return $t;
+}
+
+test('consent_required 검사도 유료면 검사권 없이는 checkout 으로 간다 — 자격 확인이 동의 분기보다 먼저다 (Important 4)', function () {
+    $t = oyMsiPaidConsentTest();
+    $this->actingAs($this->user)
+        ->post(route('assessment.agree', 'PAC'), ['agree' => '1']);
+    $attempt = TestAttempt::where('test_id', $t->id)->latest('id')->first();
+    expect($attempt->status)->toBe('created');
+
+    $this->actingAs($this->user)
+        ->post(route('assessment.start', 'PAC'))
+        ->assertRedirect(route('checkout.show', $t->activeProduct()->id));
+
+    // 검사권 없이는 in_progress 로 넘어가지 않는다 — 동의 분기가 결제 확인을 건너뛰지 않는지 확인
+    expect($attempt->fresh()->status)->toBe('created');
+});
+
+test('consent_required 검사에 검사권이 있으면 소비되고 attempt 가 이어진다 (Important 4)', function () {
+    $t = oyMsiPaidConsentTest();
+    $this->actingAs($this->user)
+        ->post(route('assessment.agree', 'PAC'), ['agree' => '1']);
+    $attempt = TestAttempt::where('test_id', $t->id)->latest('id')->first();
+
+    $voucher = Voucher::create([
+        'user_id' => $this->user->id, 'test_id' => $t->id, 'status' => 'active',
+        'source' => 'purchase', 'issued_at' => now(), 'expires_at' => now()->addYear(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('assessment.start', 'PAC'))
+        ->assertRedirect(route('assessment.take', ['PAC', $attempt->id]));
+
+    expect($attempt->fresh()->status)->toBe('in_progress');
+    expect($attempt->fresh()->voucher_id)->toBe($voucher->id);
+    expect($voucher->fresh()->status)->toBe('used');
 });

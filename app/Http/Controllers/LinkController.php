@@ -45,6 +45,10 @@ class LinkController extends Controller
         $voucher = $this->voucherOrFail($token);
         abort_if($voucher->status === 'used', 409, '이미 응시가 완료된 링크입니다.');
 
+        // consent_required 검사는 링크 수신자용 동의 확인 화면이 아직 없다(Task 13에서 추가).
+        // 화면이 생기기 전까지는 통과시키지 않고 막는다 — fail closed.
+        abort_if($voucher->test->consent_required, 403, '이 검사는 아직 링크 응시를 지원하지 않습니다.');
+
         $data = $request->validate([
             'recipient_name' => 'required|string|max:100',
             'recipient_age' => 'nullable|string|max:20',
@@ -71,6 +75,7 @@ class LinkController extends Controller
     {
         $voucher = $this->voucherOrFail($token);
         $this->authorizeLinkAttempt($request, $voucher, $attempt);
+        app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
 
         $attempt->load('test.items');
         return view('assessment.take', [
@@ -84,6 +89,7 @@ class LinkController extends Controller
     {
         $voucher = $this->voucherOrFail($token);
         $this->authorizeLinkAttempt($request, $voucher, $attempt);
+        app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
         abort_if($attempt->status === 'submitted', 409);
 
         $itemsById = $attempt->test->items()->get()->keyBy('id');

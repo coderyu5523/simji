@@ -3180,6 +3180,13 @@ git commit -m "fix(assessment): 0점 응답이 거부되던 버그 — 문항 op
 
 **왜 검사 단위 옵트인인가:** 지금 `start()`는 동의 없이도 호출 가능하고 기존 33개 테스트가 그 경로에 의존한다. 전역으로 막으면 회귀가 난다. 6/26 spec이 요구한 건 "**실제 아동 대상 검사를 active 로 올리기 전에** 우회를 막아라"이므로, 검사 속성으로 켜는 것이 요구를 충족하면서 회귀도 없다.
 
+**2026-07-28 fix round 1 갱신 (커밋 이후 리뷰 반영, 계획서와 실제 코드가 어긋나지 않도록 기록):**
+- `LinkController`(`/t/{token}` 링크 응시 경로)도 `assessment.*` 와 같은 수준으로 게이트를 걸었다 — `take`/`submit`에 `ConsentGate::assertSatisfied`, `start`에는 `abort_if($voucher->test->consent_required, 403, ...)` (링크 수신자용 동의 화면이 아직 없어 **통째로 막는다** — Task 13이 화면을 만들 때까지 fail closed 상태 유지).
+- `AssessmentController::start()`: 유료 검사 자격(entitlement) 확인(`isPaid`/`firstActive`/checkout 리다이렉트)이 `consent_required` 분기보다 **먼저** 돌도록 순서를 바꿨다. 또 `consent_required` 분기에서도 `$attempt->voucher_id` 가 비어있을 때만 `consume()`을 호출해 재진입 시 검사권 중복 소비를 막았고, attempt가 이미 `submitted`면 409로 막아 재진입이 `submitted → in_progress`로 되돌리지 못하게 했다.
+- `AssessmentController::agree()`: 세션에 아직 `created` 상태인 attempt가 있으면 재사용한다 — 동의 폼 재제출마다 attempt+동의기록이 새로 쌓이는 걸 막기 위함(동의 기록은 법적 증거라 중복행이 특히 나쁘다는 판단).
+- 이 갱신들의 테스트는 `tests/Feature/OyMsi/ConsentGateTest.php`(추가분)와 신규 `tests/Feature/OyMsi/LinkConsentGateTest.php`에 있다.
+- **Critical 2(연령 미상 fail open)** 와 **Important 3(GUARDIAN_OFFLINE 기록 경로 없음)** 은 이 fix round에서 의도적으로 고치지 않았다 — 지금 fail closed로 바꾸면 나이를 채울 경로 자체가 없어 OY_MSI 응시가 전면 403이 된다. Task 13(연령 게이트)이 나이 수집과 동시에 전환하기로 사람이 판단했다. 아래 Task 13 절의 "fix round 1 필수 요구사항"을 반드시 반영할 것.
+
 - [ ] **Step 1: 우회 차단 테스트 작성**
 
 `tests/Feature/OyMsi/ConsentGateTest.php`:
@@ -3466,6 +3473,20 @@ git commit -m "fix(assessment): 동의 우회 차단 — 동의 시점에 attemp
 | 만 14세 미만 · 링크 경로 · 담당자 확인 **없음** | 차단. "담당자에게 문의해 주세요" |
 | `min_age` 미만 (만 13세 미만) | 차단. 대상 아님 |
 | `max_age` 초과 (만 19세 이상) | 차단. 대상 아님 |
+
+**⚠️ Task 12 fix round 1 로부터 필수 요구사항 (2026-07-28, 사람 판단 — 재질문 불필요, 임의로 빠뜨리지 말 것):**
+
+Task 12 리뷰에서 Critical 2 / Important 3 두 건이 발견됐고, 지금(Task 12 시점) 고치면 나이를 채울 경로가 없어 OY_MSI 응시가 전면 403이 되므로 **나이 수집(이 Task 13)과 동시에 전환**하기로 했다. 이 Task를 구현하는 사람은 아래 3개를 빠뜨리면 안 된다:
+
+**(a) fail closed 전환 — `age_at_test` 가 null 이면 "동의 불필요"가 아니라 "미충족(403)"으로 처리한다.**
+근본 원인: `Test::needsGuardianConsentFor($age)` 가 `$age === null` 이면 `false`를 반환한다(app/Models/Test.php) → `ConsentGate::assertSatisfied()`가 나이를 모르는 attempt를 "보호자 동의 불필요"로 오판해 통과시킨다(fail open). 이 Task가 age-gate로 `consent()`/`link.landing()` 진입 전에 나이를 강제로 받게 만들면 정상 플로우에서는 `age_at_test`가 항상 채워지겠지만, **그것과 별개로** `ConsentGate`(또는 `Test::needsGuardianConsentFor`) 자체를 "guardian_consent_below_age 가 설정된 검사인데 age 를 모르면 차단"으로 바꿔야 한다 — 정상 플로우 밖에서 attempt가 만들어지는 경로(예: 직접 DB 조작, 다른 컨트롤러의 미래 진입점)에 대한 방어선이다. 이 태스크 완료 시 `age_at_test = null` + `guardian_consent_below_age` 설정된 검사 조합이 403이 되는지 테스트로 고정할 것.
+
+**(b) `GUARDIAN_OFFLINE` 동의를 실제로 기록한다.**
+현재 `ConsentGate::assertSatisfied()`는 `needsGuardianConsentFor()`가 true 인데 `GUARDIAN_OFFLINE` 타입 동의가 없으면 403 을 던지지만, 이 동의를 실제로 `ConsentGate::record(..., ConsentGate::GUARDIAN_OFFLINE, ...)`로 남기는 코드가 어디에도 없다 — 지금 상태로 (a)까지 적용하면 만 14세 미만은 **영원히 통과할 수 없는 403 데드락**이 된다. 이 Task의 `linkSubmit()`에서 `guardianConfirmed`(담당자 확인, 브리프 예시의 `guardian_consent_confirmed_at`)가 true 인 경로를 통과시킬 때 반드시 `ConsentGate::record($attempt, ConsentGate::GUARDIAN_OFFLINE, 'staff', ...)`를 호출해야 한다. 단, 이 시점엔 아직 attempt가 없을 수 있으므로(연령 확인이 동의/시작보다 앞선 단계) attempt 생성 이후(예: `agree()`/링크 동의 확정 시점)로 기록 위치를 조정해도 된다 — 핵심은 "빠뜨리지 않는 것"이다.
+참고: 기존 `requires_guardian_consent` + `guardian_agree` 체크박스(GuardianConsentTest 가 검증하는 옛 플로우)는 검증만 하고 `consent_records`에 아무것도 남기지 않는다 — `consent_required` 계열과는 별개 메커니즘으로 계속 둘 것인지, `guardian_agree` 체크를 `GUARDIAN_OFFLINE` 기록과 연결할 것인지는 이 Task에서 판단해서 정리할 것 (임의로 둘 다 유지한 채 방치하지 말 것).
+
+**(c) 링크 경로(`oymsi_age_token:{token}`)에도 (a)(b) 동일 적용 + 링크 수신자용 동의 화면.**
+`LinkController::start()`는 Task 12 fix round 1 에서 `consent_required` 검사를 **통째로 막아뒀다**(`abort_if($voucher->test->consent_required, 403, ...)`, 링크용 동의 화면이 없어서). 이 Task가 링크 수신자용 동의 확인 화면(또는 흐름)을 만들면 그 차단을 걷어내고, 대신 (a)(b)가 링크 경로에서도 동일하게 적용되는지 확인할 것 — 특히 링크는 로그인이 없는 guest 흐름이라 `age_at_test`/동의 상태를 세션(`oymsi_age_token:{token}`)에 의존하는데, 여기서도 null-이면-차단(fail closed) 원칙이 지켜져야 한다.
 
 - [ ] **Step 1: 연령 게이트 테스트 작성**
 
