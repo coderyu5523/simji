@@ -168,6 +168,11 @@ test('consent_required 검사에 검사권이 있으면 소비되고 attempt 가
         'source' => 'purchase', 'issued_at' => now(), 'expires_at' => now()->addYear(),
     ]);
 
+    // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
+    $this->actingAs($this->user)
+        ->post(route('oymsi.profile.submit', 'PAC'), ['nickname' => '민수', 'gender' => 'male'])
+        ->assertRedirect(route('assessment.start', 'PAC'));
+
     $this->actingAs($this->user)
         ->post(route('assessment.start', 'PAC'))
         ->assertRedirect(route('assessment.take', ['PAC', $attempt->id]));

@@ -13,6 +13,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\LinkController;
 use App\Http\Controllers\OyMsi\AgeGateController;
+use App\Http\Controllers\OyMsi\ProfileStepController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -35,6 +36,13 @@ Route::middleware('auth')->controller(AgeGateController::class)
     ->prefix('assessment/{code}')->name('oymsi.age.')->group(function () {
         Route::get('age', 'form')->name('form');
         Route::post('age', 'submit')->name('submit');
+    });
+
+// 기본정보(닉네임·성별) — 동의 이후, 응시(take) 이전 단계. 세션 attempt 가 없으면 403(fail closed).
+Route::middleware('auth')->controller(ProfileStepController::class)
+    ->prefix('assessment/{code}')->name('oymsi.profile.')->group(function () {
+        Route::get('profile', 'form')->name('form');
+        Route::post('profile', 'submit')->name('submit');
     });
 
 // 검사 진행은 무료·유료 구분 없이 로그인 필수 (비회원 응시 불가)

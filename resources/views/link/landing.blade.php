@@ -16,17 +16,28 @@
         <form method="POST" action="{{ route('link.start', $voucher->access_token) }}" class="mt-7 space-y-4">
           @csrf
           <div>
-            <label class="block text-sm font-semibold text-navy mb-1.5">응시자 이름 <span class="text-signal-red">*</span></label>
-            <input type="text" name="recipient_name" value="{{ old('recipient_name') }}" required maxlength="100"
+            <label class="block text-sm font-semibold text-navy mb-1.5" for="nickname">이름 또는 별명 <span class="text-signal-red">*</span></label>
+            <input id="nickname" type="text" name="nickname" value="{{ old('nickname') }}" required maxlength="50"
                    class="w-full rounded-xl border border-black/10 px-4 py-3 focus:border-teal focus:ring-teal"
-                   placeholder="검사받는 분의 이름">
-            @error('recipient_name')<p class="text-xs text-signal-red mt-1">{{ $message }}</p>@enderror
+                   placeholder="예: 민수">
+            <p class="text-xs text-navy/40 mt-1">결과지에 이 이름이 나와. 실명이 아니어도 괜찮아.</p>
+            @error('nickname')<p class="text-xs text-signal-red mt-1">{{ $message }}</p>@enderror
           </div>
           <div>
-            <label class="block text-sm font-semibold text-navy mb-1.5">나이 <span class="text-navy/40 font-normal">(선택)</span></label>
-            <input type="text" name="recipient_age" value="{{ old('recipient_age') }}" maxlength="20"
-                   class="w-full rounded-xl border border-black/10 px-4 py-3 focus:border-teal focus:ring-teal"
-                   placeholder="예: 만 8세 / 25">
+            <span class="block text-sm font-semibold text-navy mb-1.5">성별 <span class="text-signal-red">*</span></span>
+            <div class="grid grid-cols-3 gap-2">
+              @foreach(['male' => '남', 'female' => '여', 'no_answer' => '응답하지 않음'] as $value => $label)
+                <label class="cursor-pointer">
+                  <input type="radio" name="gender" value="{{ $value }}" class="peer sr-only"
+                         @checked(old('gender') === $value) required>
+                  <span class="block rounded-xl bg-white p-3 text-center text-sm ring-1 ring-black/10
+                               peer-checked:bg-deepgreen peer-checked:text-cream peer-checked:font-bold">
+                    {{ $label }}
+                  </span>
+                </label>
+              @endforeach
+            </div>
+            @error('gender')<p class="text-xs text-signal-red mt-1">{{ $message }}</p>@enderror
           </div>
           @if($test->consent_required)
             {{-- 링크 수신자용 동의 확인. 이 체크가 없으면 attempt 를 만들지 않는다(LinkController::start). --}}

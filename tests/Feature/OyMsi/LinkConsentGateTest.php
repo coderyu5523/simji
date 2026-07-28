@@ -31,7 +31,7 @@ function makeOyMsiVoucher(Test $test, User $issuer, string $token): Voucher
 test('consent_required 검사는 연령 확인 없이 링크 start 를 때리면 attempt 가 생기지 않는다 (fail closed)', function () {
     $voucher = makeOyMsiVoucher($this->test, $this->issuer, 'tok-start-block');
 
-    $this->post(route('link.start', 'tok-start-block'), ['recipient_name' => '홍길동', 'agree' => '1'])
+    $this->post(route('link.start', 'tok-start-block'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1'])
         ->assertRedirect(route('link.age.form', 'tok-start-block'));
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
@@ -42,7 +42,7 @@ test('consent_required 검사는 나이를 확인해도 동의 체크 없이는 
     $voucher = makeOyMsiVoucher($this->test, $this->issuer, 'tok-start-noagree');
 
     $this->withSession(['oymsi_age_token:tok-start-noagree' => 16])
-        ->post(route('link.start', 'tok-start-noagree'), ['recipient_name' => '홍길동'])
+        ->post(route('link.start', 'tok-start-noagree'), ['nickname' => '홍길동', 'gender' => 'male'])
         ->assertSessionHasErrors('agree');
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
@@ -92,7 +92,7 @@ test('consent_required 가 꺼진 검사는 링크 경로가 그대로 동작한
     $sample = Test::where('code', 'KMSIA-SAMPLE')->with('items')->firstOrFail();
     $voucher = makeOyMsiVoucher($sample, $this->issuer, 'tok-sample-ok');
 
-    $this->post(route('link.start', 'tok-sample-ok'), ['recipient_name' => '김철수'])
+    $this->post(route('link.start', 'tok-sample-ok'), ['nickname' => '김철수', 'gender' => 'male'])
         ->assertRedirect();
 
     $attempt = TestAttempt::where('test_id', $sample->id)->latest('id')->first();

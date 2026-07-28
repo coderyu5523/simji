@@ -24,8 +24,9 @@ function submitPayload(Test $test, array $overrides = [], $default = 0): array
 
 // OY_MSI 는 Task 12 부터 consent_required=true 라 submit 전에 동의 기록이 필요하고,
 // Task 13 부터는 age_at_test 가 null 이면 ConsentGate 가 fail closed 로 403 을 던진다.
-// 이 파일의 테스트들은 답변 검증 로직만 확인하는 것이 목적이므로, 동의 기록과 나이를
-// 최소한으로 채워 그 게이트들을 통과시킨다 (게이트 자체는 ConsentGateTest/AgeGateTest 에서 검증).
+// Task 14 부터는 nickname 이 없으면 submit() 이 기본정보 미입력으로 차단한다.
+// 이 파일의 테스트들은 답변 검증 로직만 확인하는 것이 목적이므로, 동의 기록·나이·닉네임을
+// 최소한으로 채워 그 게이트들을 통과시킨다 (게이트 자체는 ConsentGateTest/AgeGateTest/ProfileStepTest 에서 검증).
 function giveConsent(TestAttempt $attempt): void
 {
     app(\App\Services\OyMsi\ConsentGate::class)->record(
@@ -36,7 +37,7 @@ function giveConsent(TestAttempt $attempt): void
 test('4점 척도에서 0점 응답이 통과한다 (기존 min:1 버그)', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
-        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
+        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16, 'nickname' => '테스트',
     ]);
     giveConsent($attempt);
 
@@ -52,7 +53,7 @@ test('4점 척도에서 0점 응답이 통과한다 (기존 min:1 버그)', func
 test('4점 척도에서 4 이상은 거부한다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
-        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
+        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16, 'nickname' => '테스트',
     ]);
     giveConsent($attempt);
 
@@ -64,7 +65,7 @@ test('4점 척도에서 4 이상은 거부한다', function () {
 test('PREFER_NOT 은 value=null · missing_code 로 저장된다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
-        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16,
+        'status' => 'in_progress', 'started_at' => now(), 'age_at_test' => 16, 'nickname' => '테스트',
     ]);
     giveConsent($attempt);
 

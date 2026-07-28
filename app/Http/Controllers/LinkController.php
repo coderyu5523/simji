@@ -59,8 +59,8 @@ class LinkController extends Controller
         $test = $voucher->test;
 
         $rules = [
-            'recipient_name' => 'required|string|max:100',
-            'recipient_age' => 'nullable|string|max:20',
+            'nickname' => 'required|string|max:50',
+            'gender' => 'required|in:male,female,no_answer',
         ];
         // 링크 수신자용 동의 — landing 화면의 체크박스. 없으면 attempt 를 만들지 않는다.
         if ($test->consent_required) $rules['agree'] = 'accepted';
@@ -98,6 +98,10 @@ class LinkController extends Controller
             if ($age !== null && $attempt->age_at_test !== $age) {
                 $attempt->update(['age_at_test' => $age]);
             }
+            // 닉네임·성별도 재사용 attempt 에 채워둔다(첫 제출에서 아직 없었던 경우 대비).
+            if (!$attempt->nickname) {
+                $attempt->update(['nickname' => $data['nickname'], 'gender' => $data['gender']]);
+            }
         } else {
             $attempt = TestAttempt::create([
                 'user_id' => null,
@@ -107,6 +111,8 @@ class LinkController extends Controller
                 'status' => 'in_progress',
                 'started_at' => now(),
                 'age_at_test' => $age,
+                'nickname' => $data['nickname'],
+                'gender' => $data['gender'],
                 'assessment_version' => $test->assessment_version,
                 'scoring_version' => $test->scoringRule?->version,
             ]);
@@ -137,10 +143,8 @@ class LinkController extends Controller
             }
         }
 
-        $voucher->update([
-            'recipient_name' => $data['recipient_name'],
-            'recipient_age' => $data['recipient_age'] ?? null,
-        ]);
+        // recipient_name 은 담당자가 검사권 발급 시 입력한 명부용 값이다. 청소년 본인이 여기서
+        // 입력하는 nickname 과는 별개이므로 덮어쓰지 않는다.
 
         return redirect()->route('link.take', [$token, $attempt->id]);
     }

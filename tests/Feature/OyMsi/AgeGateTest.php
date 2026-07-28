@@ -86,7 +86,7 @@ test('링크 경로 · 만 13세 · 담당자 확인 있으면 통과하고 동�
 
     // (b) 통과시킨 이상 guardian_offline 동의가 실제로 기록되어야 한다 —
     // 기록이 없으면 ConsentGate 가 영원히 403 을 던지는 데드락이 된다.
-    $this->post(route('link.start', 'tok13ok'), ['recipient_name' => '홍길동', 'agree' => '1'])
+    $this->post(route('link.start', 'tok13ok'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1'])
         ->assertRedirect();
 
     $attempt = TestAttempt::where('voucher_id', $voucher->id)->latest('id')->firstOrFail();
@@ -107,9 +107,9 @@ test('링크 start 를 여러 번 제출해도 attempt 와 동의기록이 하�
     $voucher = ageGateVoucher($this->test, $this->user, 'tok-dup', guardianConfirmed: true);
 
     $this->post(route('link.age.submit', 'tok-dup'), ['birthdate' => birthdateForAge(13)]);
-    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
-    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
-    $this->post(route('link.start', 'tok-dup'), ['recipient_name' => '홍길동', 'agree' => '1']);
+    $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
+    $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
+    $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
 
     expect(TestAttempt::where('voucher_id', $voucher->id)->count())->toBe(1);
 
@@ -221,6 +221,10 @@ test('(①) 나이 null 로 굳은 created attempt 도 나이 확정 후 다시 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(1); // 재사용
     expect($attempt->fresh()->age_at_test)->toBe(16);
 
+    // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
+    $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
+        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();
 });
 
@@ -258,7 +262,7 @@ test('링크: 나이 확인 없이 landing 에 들어가면 연령 게이트로 
 test('링크: 나이 확인 없이 start 를 직접 POST 하면 attempt 가 생기지 않는다 (fail closed)', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok-nostart');
 
-    $this->post(route('link.start', 'tok-nostart'), ['recipient_name' => '홍길동', 'agree' => '1'])
+    $this->post(route('link.start', 'tok-nostart'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1'])
         ->assertRedirect(route('link.age.form', 'tok-nostart'));
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
@@ -270,7 +274,7 @@ test('링크: 세션에 만 13세를 심어도 담당자 확인이 없으면 sta
 
     // 게이트를 우회해 세션만 조작한 상황(또는 확인이 사후 철회된 상황)
     $this->withSession(['oymsi_age_token:tok-forge' => 13])
-        ->post(route('link.start', 'tok-forge'), ['recipient_name' => '홍길동', 'agree' => '1'])
+        ->post(route('link.start', 'tok-forge'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1'])
         ->assertForbidden();
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
@@ -281,7 +285,7 @@ test('링크: 동의 체크 없이 start 하면 거부되고 attempt 가 생기�
     ageGateVoucher($this->test, $this->user, 'tok-noagree');
 
     $this->withSession(['oymsi_age_token:tok-noagree' => 16])
-        ->post(route('link.start', 'tok-noagree'), ['recipient_name' => '홍길동'])
+        ->post(route('link.start', 'tok-noagree'), ['nickname' => '홍길동', 'gender' => 'male'])
         ->assertSessionHasErrors('agree');
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
@@ -300,6 +304,10 @@ test('개인 경로 만 16세는 연령 → 동의 → 시작 → 검사까지 �
     $attempt = TestAttempt::where('test_id', $this->test->id)->latest('id')->firstOrFail();
     expect($attempt->age_at_test)->toBe(16);
 
+    // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
+    $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
+        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+
     $this->post(route('assessment.start', 'OY_MSI'))
         ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();
@@ -312,7 +320,7 @@ test('링크 경로 만 16세는 연령 → 동의 → 검사까지 이어지고
         ->assertRedirect(route('link.landing', 'tok16'));
     $this->get(route('link.landing', 'tok16'))->assertOk();
 
-    $this->post(route('link.start', 'tok16'), ['recipient_name' => '홍길동', 'agree' => '1'])
+    $this->post(route('link.start', 'tok16'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1'])
         ->assertRedirect();
 
     $attempt = TestAttempt::where('voucher_id', $voucher->id)->latest('id')->firstOrFail();
