@@ -25,11 +25,25 @@ function makeOyMsiVoucher(Test $test, User $issuer, string $token): Voucher
     ]);
 }
 
-test('consent_required 검사는 링크 start 자체가 막힌다 (링크용 동의 화면이 아직 없어 fail closed)', function () {
+// Task 13 에서 링크 수신자용 연령·동의 화면이 생기면서 "consent_required 면 무조건 403" 이라는
+// 임시 차단은 걷어냈다. 지키던 요구사항(동의 확인 없이는 attempt 도 검사권 소비도 없다)은 그대로다 —
+// 이제는 연령 확인 없으면 연령 게이트로, 동의 체크 없으면 검증 오류로 막힌다.
+test('consent_required 검사는 연령 확인 없이 링크 start 를 때리면 attempt 가 생기지 않는다 (fail closed)', function () {
     $voucher = makeOyMsiVoucher($this->test, $this->issuer, 'tok-start-block');
 
-    $this->post(route('link.start', 'tok-start-block'), ['recipient_name' => '홍길동'])
-        ->assertForbidden();
+    $this->post(route('link.start', 'tok-start-block'), ['recipient_name' => '홍길동', 'agree' => '1'])
+        ->assertRedirect(route('link.age.form', 'tok-start-block'));
+
+    expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
+    expect($voucher->fresh()->status)->toBe('active');
+});
+
+test('consent_required 검사는 나이를 확인해도 동의 체크 없이는 링크 start 가 막힌다', function () {
+    $voucher = makeOyMsiVoucher($this->test, $this->issuer, 'tok-start-noagree');
+
+    $this->withSession(['oymsi_age_token:tok-start-noagree' => 16])
+        ->post(route('link.start', 'tok-start-noagree'), ['recipient_name' => '홍길동'])
+        ->assertSessionHasErrors('agree');
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(0);
     expect($voucher->fresh()->status)->toBe('active');

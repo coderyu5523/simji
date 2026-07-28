@@ -19,8 +19,12 @@ test('OY_MSI 는 consent_required 가 켜져 있다', function () {
     expect($this->test->consent_required)->toBeTrue();
 });
 
+// Task 13 부터 OY_MSI 는 동의보다 앞선 단계로 연령 게이트를 거친다. 나이가 세션에 없으면
+// agree() 가 연령 게이트로 되돌리므로, 동의 로직 자체를 보는 아래 테스트들은 나이를 미리 채워둔다
+// (연령 게이트의 차단 규칙은 AgeGateTest 가 검증한다).
 test('동의하면 attempt 가 created 상태로 생기고 동의 기록이 남는다', function () {
     $this->actingAs($this->user)
+        ->withSession(['oymsi_age:OY_MSI' => 16])
         ->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1'])
         ->assertRedirect();
 
@@ -29,6 +33,7 @@ test('동의하면 attempt 가 created 상태로 생기고 동의 기록이 남�
     expect($attempt->status)->toBe('created');
     expect($attempt->assessment_version)->toBe('1.0.1');
     expect($attempt->scoring_version)->toBe('1.0.0');
+    expect($attempt->age_at_test)->toBe(16);
 
     $consent = ConsentRecord::where('attempt_id', $attempt->id)->where('consent_type', 'sensitive')->first();
     expect($consent)->not->toBeNull();
@@ -99,9 +104,10 @@ test('동의 없이 start 를 직접 호출해도 차단되고 attempt 가 생�
 });
 
 test('동의 폼을 여러 번 제출해도 attempt 와 동의기록이 하나만 생긴다 (Important 7)', function () {
-    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
-    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
-    $this->actingAs($this->user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $this->actingAs($this->user)->withSession(['oymsi_age:OY_MSI' => 16]);
+    $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
+    $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(1);
     expect(ConsentRecord::where('consent_type', 'sensitive')->count())->toBe(1);
@@ -109,6 +115,7 @@ test('동의 폼을 여러 번 제출해도 attempt 와 동의기록이 하나�
 
 test('제출 완료된 attempt 로 start 를 다시 호출해도 submitted 가 in_progress 로 되돌아가지 않는다 (Important 5 — 회귀)', function () {
     $this->actingAs($this->user)
+        ->withSession(['oymsi_age:OY_MSI' => 16])
         ->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
     $attempt = TestAttempt::where('test_id', $this->test->id)->latest('id')->first();
     $attempt->update(['status' => 'submitted', 'submitted_at' => now()]);

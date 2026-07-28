@@ -12,6 +12,7 @@ use App\Http\Controllers\MyTestController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\LinkController;
+use App\Http\Controllers\OyMsi\AgeGateController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -29,6 +30,13 @@ Route::get('/experts',      fn () => view('experts'))->name('experts');         
 Route::get('/about',        fn () => view('about'))->name('about');                // 심지 소개
 Route::get('/support',      fn () => view('support'))->name('support');            // 고객센터
 
+// 연령 게이트 — 동의(consent)보다 앞선 단계. 만 나이만 세션에 담는다(생년월일 미저장)
+Route::middleware('auth')->controller(AgeGateController::class)
+    ->prefix('assessment/{code}')->name('oymsi.age.')->group(function () {
+        Route::get('age', 'form')->name('form');
+        Route::post('age', 'submit')->name('submit');
+    });
+
 // 검사 진행은 무료·유료 구분 없이 로그인 필수 (비회원 응시 불가)
 Route::middleware('auth')->controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
@@ -40,6 +48,12 @@ Route::middleware('auth')->controller(AssessmentController::class)->prefix('asse
 });
 
 Route::get('/result/{attempt}', [ResultController::class, 'show'])->name('result.show');
+
+// 링크 수신자용 연령 게이트 (로그인 불필요 — landing 보다 앞선 단계)
+Route::controller(AgeGateController::class)->prefix('t/{token}')->name('link.age.')->group(function () {
+    Route::get('age', 'linkForm')->name('form');
+    Route::post('age', 'linkSubmit')->name('submit');
+});
 
 // 검사권 링크 응시 (로그인 불필요 — 발급자가 전달한 링크로 대상자가 직접 응시)
 Route::controller(LinkController::class)->prefix('t/{token}')->name('link.')->group(function () {

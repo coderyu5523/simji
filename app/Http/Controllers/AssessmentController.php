@@ -17,9 +17,23 @@ class AssessmentController extends Controller
         return ['user_id' => null, 'guest_token' => $request->session()->get('guest_token')];
     }
 
-    public function consent(string $code)
+    /**
+     * 연령 확인이 필요한 검사인데 세션에 만 나이가 없으면 연령 게이트로 보낸다.
+     * "나이를 모르면 통과"가 아니라 "나이를 모르면 앞으로 못 간다" — fail closed.
+     */
+    private function ageGateRedirect(Request $request, Test $test): ?\Illuminate\Http\RedirectResponse
+    {
+        if ($test->requiresAgeVerification() && !$request->session()->has('oymsi_age:'.$test->code)) {
+            return redirect()->route('oymsi.age.form', $test->code);
+        }
+        return null;
+    }
+
+    public function consent(Request $request, string $code)
     {
         $test = Test::where('code', $code)->firstOrFail();
+        if ($redirect = $this->ageGateRedirect($request, $test)) return $redirect;
+
         return view('assessment.consent', compact('test'));
     }
 
@@ -30,6 +44,10 @@ class AssessmentController extends Controller
         if ($test->requires_guardian_consent) $rules['guardian_agree'] = 'accepted';
         $request->validate($rules);
 
+        // 동의 폼을 건너뛰고 agree 를 직접 POST 해도 나이 없이는 확정하지 않는다.
+        // (검증보다 뒤에 둔다 — 동의 체크 누락은 그대로 검증 오류로 돌려줘야 한다.)
+        if ($redirect = $this->ageGateRedirect($request, $test)) return $redirect;
+
         $request->session()->put('consent_ok:'.$code, true);
 
         // consent_required 검사는 이 시점에 attempt 를 만들고 동의를 영속화한다.
@@ -38,11 +56,19 @@ class AssessmentController extends Controller
             // 동의 폼 재제출(뒤로가기·새로고침) 시 아직 시작하지 않은 attempt 는 재사용한다.
             // 재사용하지 않으면 매 POST 마다 고아 attempt 와 sensitive 동의행이 쌓인다 —
             // 동의 기록은 법적 증거라 구분 불가한 중복행이 특히 나쁘다.
+            $age = $request->session()->get('oymsi_age:'.$code);
             $existingId = $request->session()->get('oymsi_attempt:'.$code);
             $existing = $existingId ? TestAttempt::find($existingId) : null;
             $reusable = $existing && $existing->test_id === $test->id && $existing->status === 'created';
 
-            if (!$reusable) {
+            if ($reusable) {
+                // 재사용 분기에서도 나이를 다시 채운다. 연령 게이트 이전에 만들어져 age_at_test 가
+                // null 로 굳은 attempt 는 ConsentGate 의 fail closed 때문에 영구 403 이 되는데,
+                // 이 갱신이 그 유일한 해소 경로다. (나이를 지우지는 않는다 — null 로 덮어쓰기 금지.)
+                if ($age !== null && $existing->age_at_test !== $age) {
+                    $existing->update(['age_at_test' => $age]);
+                }
+            } else {
                 $attempt = TestAttempt::create(array_merge(
                     $this->actorColumns($request),
                     [
@@ -50,7 +76,7 @@ class AssessmentController extends Controller
                         'status' => 'created',
                         'assessment_version' => $test->assessment_version,
                         'scoring_version' => $test->scoringRule?->version,
-                        'age_at_test' => $request->session()->get('oymsi_age:'.$code),
+                        'age_at_test' => $age,
                     ]
                 ));
                 $gate->record($attempt, \App\Services\OyMsi\ConsentGate::SENSITIVE, 'youth', auth()->id());
@@ -103,7 +129,12 @@ class AssessmentController extends Controller
 
         $attempt = TestAttempt::create(array_merge(
             $this->actorColumns($request),
-            ['test_id' => $test->id, 'status' => 'in_progress', 'started_at' => now()]
+            [
+                'test_id' => $test->id, 'status' => 'in_progress', 'started_at' => now(),
+                // consent_required 가 아니어도 연령 게이트를 거친 검사면 나이를 남긴다
+                // (ConsentGate 의 fail closed 가 이 값을 본다).
+                'age_at_test' => $request->session()->get('oymsi_age:'.$code),
+            ]
         ));
 
         if ($consume) {
