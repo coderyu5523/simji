@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
  *     · 발급자가 열람을 막아둔 결과(voucher.result_visible=false)는 발급도 열람도 불가.
  *       ResultController::show 의 열람 통제와 같은 기준이고, 이미 나간 링크도 그 시점에 닫힌다.
  *       단 **철회(revoke)는 예외로 언제나 허용**한다 — revoke() 주석 참조.
+ *     · 가족·보호환경(FAM) 요인이 RED 면 발급도 열람도 불가 — familyRiskBlocksShare() 주석 참조.
  *  7. attempt 당 살아 있는 링크는 하나다. 이미 유효한 링크가 있으면 새로 만들지 않고
  *     그것을 다시 보여준다(중복 제출로 유출 대상 비밀이 늘어나지 않게).
  */
@@ -101,6 +102,8 @@ class ShareController extends Controller
 
         $attempt = $share->attempt()->with('result', 'voucher', 'test.scoringRule')->first();
         abort_unless($attempt && $attempt->result && $this->isShareable($attempt), 404);
+        // 이미 나간 링크도 닫는다(재채점으로 FAM 이 RED 가 된 경우). 보호자에게는 이유를 밝히지 않는다.
+        abort_if($this->familyRiskBlocksShare($attempt), 404);
 
         // 첫 열람만 기록한다 — "언제 처음 열렸는가" 가 남아야 할 사실이다.
         if ($share->viewed_at === null) {
@@ -152,6 +155,13 @@ class ShareController extends Controller
             return $this->unavailable($attempt, 'result_hidden', 403);
         }
 
+        // 가족·보호환경 RED — 차단. 이유 화면(family_risk)이 상담 연결을 안내한다.
+        // $requireShareable=false 인 철회 경로에는 걸지 않는다: 차단 상태에서도 청소년이
+        // 이미 만들어 둔 링크를 취소할 수 있어야 한다(revoke() 주석과 같은 이유).
+        if ($requireShareable && $this->familyRiskBlocksShare($attempt)) {
+            return $this->unavailable($attempt, 'family_risk', 403);
+        }
+
         return null;
     }
 
@@ -171,6 +181,34 @@ class ShareController extends Controller
     private function isShareable(TestAttempt $attempt): bool
     {
         return $attempt->voucher === null || (bool) $attempt->voucher->result_visible;
+    }
+
+    /**
+     * 가족·보호환경(FAM) 요인이 RED 면 보호자 공유를 **차단**한다. (2026-07-28 결정)
+     *
+     * 근거: FAM 은 정의상 가정 안의 문제를 재는 축이다(006 §FAM "가족갈등, 정서적 방임,
+     * 위협, 폭력 및 보호자원 부족"). 이 축이 RED 라는 것은 가정이 위험의 출처일 수 있다는
+     * 뜻이므로, 그 가정에 결과를 넘기지 않는다. 보호자용 FAM.RED 문안이 읽는 보호자를
+     * 사실상 위험 요인으로 서술한다는 문제(task-18b 리포트 §3-①)도 이 차단으로 닫힌다 —
+     * 문안을 지어내지 않고 노출 경로 자체를 없애는 쪽이다.
+     *
+     * needsContactFirst(S2·E2 이상)와 구분한다.
+     *   · needsContactFirst = 공유를 막지 않고 "연결"을 1순위로 올리는 **우선순위 조정**.
+     *     환경위험(E)에는 학교·온라인 등 가정 밖 출처가 섞여 있어 일괄 차단이 과하다.
+     *   · 이 함수 = **차단**. FAM 은 출처가 가정으로 특정된다.
+     * 두 분기가 겹치면 차단이 이긴다 — form() 이 share-form 을 그리기 전에 막으므로
+     * "그래도 공유할래" 버튼이 있는 화면 자체가 뜨지 않는다(모순 없음).
+     *
+     * 이미 나간 링크도 닫는다: 이 검사는 view() 에서도 다시 돌린다. 재채점으로 FAM 이
+     * RED 가 되는 경우(응답 수정·규칙 갱신)를 열린 채로 두지 않기 위해서다.
+     * 보호자 쪽 응답은 이유 없는 404 다 — "가족 위험 때문에 막혔다"를 보호자에게
+     * 알리는 것 자체가 이번 라운드에서 제거한 (a) 유형의 노출이 된다.
+     *
+     * band 가 null(UNSCORABLE — 무응답으로 요인 점수를 못 냄)이면 RED 가 아니므로 막지 않는다.
+     */
+    private function familyRiskBlocksShare(TestAttempt $attempt): bool
+    {
+        return ($attempt->result->engine_result['factors']['FAM']['band'] ?? null) === 'RED';
     }
 
     private function activeShare(TestAttempt $attempt): ?ReportShare

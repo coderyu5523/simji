@@ -430,43 +430,51 @@ test('환경위험(ENV) 문안에서 담당자용 보호절차 지침이 빠졌�
             '보호자 통보가 위험을 높일 가능성',
             '증거를 보존하고',
             '신고·보호절차',
-            // ↓ ENV 문안에는 없어야 한다. 단 TRM.RED.actions 에는 이 문장이 남아 있다
-            //   (006 8페이지 원문, 수신자가 보호자로 성립해 2026-07-28 제거 대상이 아니었다).
-            //   그래서 이 단언은 "ENV 축에 없다"는 뜻이지 전역 부재가 아니다.
-            '가해 가능성이 있는 사람과 청소년을 분리',
             '비공개 면담',
         ] as $staffOnly) {
             expect($html)->not->toContain($staffOnly);
         }
+
+        // ↑ 목록에 있던 '가해 가능성이 있는 사람과 청소년을 분리' 는 뺐다.
+        //   그 문장은 TRM.RED.actions 에 **의도적으로 남긴** 것이라(006 8페이지, 주체가
+        //   보호자로 성립해 2026-07-28 제거 대상이 아니었다) 픽스처가 TRM RED 로 바뀌는 순간
+        //   정상 문안을 회귀로 오탐한다. 이 테스트의 목적은 ENV 축 검증이므로,
+        //   아래처럼 "ENV 문안이 실제로 무엇을 말하는가"를 직접 단언하는 것으로 대체한다.
+        expect($html)->toContain('주변 환경 안전');                      // ENV 블록이 렌더됐고
+        expect($html)->toContain('전문기관의 상담을 받아 보시기를 권합니다'); // 중립 안내로 채워져 있다
+        expect($html)->toContain('1388');
     }
 });
 
-// ── Task 18b — TRM·FAM 이 실제로 RED 로 렌더될 때의 보호자 화면 ──────────────
+// ── Task 18b — TRM 이 실제로 RED 로 렌더될 때의 보호자 화면 ──────────────────
 
 /**
- * TRM·FAM 을 둘 다 RED(원점수 12/18)로 만든다. severity_weight RED=200 이므로
- * 상위3에 반드시 들어가고, 그 결과 result.GUARDIAN.{TRM,FAM}.RED.{meaning,actions,avoid}
- * 가 실제로 화면에 찍힌다. SAF·TRM06·FAM05 는 0 이라 S0·E0 다(안전 패널 문안과 섞이지 않는다).
+ * TRM 만 RED(원점수 12/18)로 만든다. severity_weight RED=200 이므로 상위3에 반드시 들고,
+ * 그 결과 result.GUARDIAN.TRM.RED.{meaning,actions,avoid} 가 실제로 화면에 찍힌다.
+ * SAF·TRM06·FAM05 는 0 이라 S0·E0 다(안전 패널 문안과 섞이지 않는다).
+ *
+ * ★ FAM 은 일부러 올리지 않는다 — FAM 이 RED 면 공유 자체가 차단되어(2026-07-28 결정,
+ *   ShareController::familyRiskBlocksShare) 보호자 화면에 도달할 수 없기 때문이다.
+ *   그 차단은 아래 '가족·보호환경(FAM)' 묶음이 따로 검증한다.
  */
-function trmFamRedAttempt(User $user): TestAttempt
+function trmRedAttempt(User $user): TestAttempt
 {
     return completedAttempt([
         'TRM01' => 3, 'TRM02' => 3, 'TRM03' => 3, 'TRM04' => 3,
-        'FAM01' => 3, 'FAM02' => 3, 'FAM03' => 3, 'FAM04' => 3,
     ], $user);
 }
 
-test('TRM·FAM RED 프로필에서 해당 문안이 실제로 렌더된다 (부재 단언의 전제)', function () {
+test('TRM RED 프로필에서 해당 문안이 실제로 렌더된다 (부재 단언의 전제)', function () {
     // ★ 이 테스트가 없으면 아래 부재 단언이 공허해진다.
     //   "문장이 없다"는 "그 문안 자체가 렌더되지 않았다"로도 참이 되기 때문이다.
-    $attempt = trmFamRedAttempt($this->user);
+    $attempt = trmRedAttempt($this->user);
 
     $engine = $attempt->result->engine_result;
     expect($engine['factors']['TRM']['band'])->toBe('RED');
-    expect($engine['factors']['FAM']['band'])->toBe('RED');
+    expect($engine['factors']['FAM']['band'])->not->toBe('RED');   // 공유가 차단되지 않는 조건
     expect($engine['safety']['suicide_level'])->toBe('S0');
     expect($engine['safety']['environment_level'])->toBe('E0');
-    expect(collect($engine['priority'])->pluck('factor')->all())->toContain('TRM', 'FAM');
+    expect(collect($engine['priority'])->pluck('factor')->all())->toContain('TRM');
 
     $html = guardianHtml($this, $attempt, $this->user);
 
@@ -474,16 +482,11 @@ test('TRM·FAM RED 프로필에서 해당 문안이 실제로 렌더된다 (부�
     expect($html)->toContain('심각한 불안과 안전감 저하를 경험할 수 있습니다');   // meaning
     expect($html)->toContain('현재 실제 위험이 있는지 먼저 확인합니다');           // actions 첫 줄
     expect($html)->toContain('청소년의 진술을 비난하거나 의심하지 않습니다');      // avoid (제거 후 남은 줄)
-
-    // FAM.RED 세 칸이 모두 화면에 있다
-    expect($html)->toContain('두려움이나 위험의 원인일 가능성을 확인해야 합니다'); // meaning
-    expect($html)->toContain('폭력과 위협이 있다면 즉시 중단합니다');              // actions 첫 줄
-    expect($html)->toContain('체벌이나 모욕을 훈육으로 정당화하지 않습니다');      // avoid
 });
 
-test('TRM·FAM 이 RED 여도 보호자 화면에 담당자용 위험 문장이 나오지 않는다', function () {
+test('TRM 이 RED 여도 보호자 화면에 담당자용 위험 문장이 나오지 않는다', function () {
     // 위 테스트로 해당 문안이 실제 렌더되는 것이 확인된 조건에서의 부재 단언이다.
-    $html = guardianHtml($this, trmFamRedAttempt($this->user), $this->user);
+    $html = guardianHtml($this, trmRedAttempt($this->user), $this->user);
 
     foreach ([
         // (a) 보호자·가족을 평가/경계 대상으로 지목
@@ -500,7 +503,13 @@ test('TRM·FAM 이 RED 여도 보호자 화면에 담당자용 위험 문장이 
 });
 
 test('청소년용 TRM·FAM RED 문안은 그대로다 — 수신자가 맞는 쪽은 손대지 않았다', function () {
-    $attempt = trmFamRedAttempt($this->user);
+    // 청소년 본인 결과 화면(result.show)에는 FAM 차단이 걸리지 않는다 — 차단 대상은 보호자 공유다.
+    $attempt = completedAttempt([
+        'TRM01' => 3, 'TRM02' => 3, 'TRM03' => 3, 'TRM04' => 3,
+        'FAM01' => 3, 'FAM02' => 3, 'FAM03' => 3, 'FAM04' => 3,
+    ], $this->user);
+    expect($attempt->result->engine_result['factors']['TRM']['band'])->toBe('RED');
+    expect($attempt->result->engine_result['factors']['FAM']['band'])->toBe('RED');
 
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
@@ -508,6 +517,107 @@ test('청소년용 TRM·FAM RED 문안은 그대로다 — 수신자가 맞는 �
         ->assertSee('혼자 해결하거나 가해 가능성이 있는 사람과 직접 맞서지 않기')   // YOUTH.TRM.RED.actions
         ->assertSee('보호자에게 알리는 것이 위험하다면 상담자에게 먼저 말하기')      // YOUTH.TRM.RED.actions
         ->assertSee('보호자에게 결과를 알려도 안전한지 상담자에게 말하기');          // YOUTH.FAM.RED.actions
+});
+
+// ── 가족·보호환경(FAM) RED — 보호자 공유 차단 (2026-07-28 결정) ─────────────
+
+/** FAM 만 RED(원점수 12/18). TRM06·FAM05 는 0 이라 S0·E0 — 차단 사유가 FAM 하나로 특정된다. */
+function famRedAttempt(User $user): TestAttempt
+{
+    return completedAttempt([
+        'FAM01' => 3, 'FAM02' => 3, 'FAM03' => 3, 'FAM04' => 3,
+    ], $user);
+}
+
+test('FAM RED 픽스처가 실제로 FAM 을 RED 로 만든다 (차단 단언의 전제)', function () {
+    // ★ 픽스처가 정말 RED 인지 먼저 못 박는다. GREEN 픽스처로 차단을 단언하면
+    //   "차단됐다"가 아니라 "애초에 조건이 아니었다"를 통과시키게 된다(옛 ENV 테스트의 전례).
+    $engine = famRedAttempt($this->user)->result->engine_result;
+
+    expect($engine['factors']['FAM']['band'])->toBe('RED');
+    expect((float) $engine['factors']['FAM']['raw'])->toBe(12.0);   // 밴드 컷오프 RED=11 이상
+    expect($engine['safety']['suicide_level'])->toBe('S0');    // S2 분기와 겹치지 않는다
+    expect($engine['safety']['environment_level'])->toBe('E0'); // E2 분기와도 겹치지 않는다
+});
+
+test('FAM 이 RED 면 공유 링크를 만들 수 없고 이유가 보인다', function () {
+    $attempt = famRedAttempt($this->user);
+
+    // 공유 화면 진입부터 막힌다 — "그래도 공유할래" 버튼이 있는 화면 자체가 뜨지 않는다.
+    $this->actingAs($this->user)
+        ->get(route('oymsi.share.form', $attempt->id))
+        ->assertStatus(403)
+        ->assertSee('이 결과는 상담자와 먼저 이야기해 보자')
+        ->assertSee('1388')
+        ->assertDontSee('공유 링크 만들기')
+        ->assertDontSee('그래도 보호자와 공유할래');
+
+    // POST 를 직접 쏴도 막힌다(화면만 가린 것이 아니다)
+    $this->actingAs($this->user)
+        ->post(route('oymsi.share.create', $attempt->id))
+        ->assertStatus(403)
+        ->assertSee('이 결과는 상담자와 먼저 이야기해 보자');
+
+    expect(ReportShare::where('attempt_id', $attempt->id)->count())->toBe(0);
+});
+
+test('FAM 이 RED 로 바뀌면 이미 나간 링크도 열리지 않는다', function () {
+    // FAM 이 GREEN 일 때 정상 발급 → 응답 수정 후 재채점으로 FAM 이 RED 가 되는 시나리오.
+    $attempt = completedAttempt(['DEP01' => 3, 'DEP02' => 3], $this->user);
+    expect($attempt->result->engine_result['factors']['FAM']['band'])->not->toBe('RED');
+
+    $this->actingAs($this->user)->post(route('oymsi.share.create', $attempt->id))->assertOk();
+    $share = ReportShare::where('attempt_id', $attempt->id)->firstOrFail();
+    $this->get(route('oymsi.share.view', $share->token))->assertOk();   // 이 시점에는 열린다
+
+    // 재채점 — FAM 을 RED 로 올린다
+    $test = Test::where('code', 'OY_MSI')->with('items')->firstOrFail();
+    foreach (['FAM01', 'FAM02', 'FAM03', 'FAM04'] as $code) {
+        $itemId = $test->items->firstWhere('item_code', $code)->id;
+        $attempt->answers()->where('test_item_id', $itemId)->update(['value' => 3]);
+    }
+    app(ScoringService::class)->score($attempt->fresh());
+    expect($attempt->fresh()->result->engine_result['factors']['FAM']['band'])->toBe('RED');
+
+    // 링크는 살아 있지만(철회·만료 아님) 열리지 않는다. 보호자에게는 이유 없는 404.
+    expect($share->fresh()->isUsable())->toBeTrue();
+    $this->get(route('oymsi.share.view', $share->token))
+        ->assertNotFound()
+        ->assertDontSee('가족');
+});
+
+test('FAM 이 RED 여도 공유 철회는 언제나 할 수 있다', function () {
+    // 차단 상태에서 철회까지 막으면, 이미 나간 링크를 청소년이 스스로 끊을 수 없게 된다.
+    $attempt = completedAttempt([], $this->user);
+    $this->actingAs($this->user)->post(route('oymsi.share.create', $attempt->id));
+    $share = ReportShare::where('attempt_id', $attempt->id)->firstOrFail();
+
+    $test = Test::where('code', 'OY_MSI')->with('items')->firstOrFail();
+    foreach (['FAM01', 'FAM02', 'FAM03', 'FAM04'] as $code) {
+        $itemId = $test->items->firstWhere('item_code', $code)->id;
+        $attempt->answers()->where('test_item_id', $itemId)->update(['value' => 3]);
+    }
+    app(ScoringService::class)->score($attempt->fresh());
+
+    $this->actingAs($this->user)
+        ->post(route('oymsi.share.revoke', $attempt->id))
+        ->assertRedirect();
+
+    expect($share->fresh()->revoked_at)->not->toBeNull();
+});
+
+test('FAM 이 RED 가 아니면 공유는 평소대로 된다', function () {
+    // 차단이 과확장되지 않았는지 — FAM YELLOW(원점수 6~10)는 막지 않는다.
+    $attempt = completedAttempt(['FAM01' => 3, 'FAM02' => 3, 'FAM03' => 2], $this->user);
+    expect($attempt->result->engine_result['factors']['FAM']['band'])->toBe('YELLOW');
+
+    $this->actingAs($this->user)
+        ->get(route('oymsi.share.form', $attempt->id))
+        ->assertOk()
+        ->assertSee('공유 링크 만들기');
+
+    $html = guardianHtml($this, $attempt, $this->user);
+    expect($html)->toContain('자녀의 마음상태');
 });
 
 test('S0+E3 에서 안전 패널이 안심 문구만 남지 않는다', function () {
