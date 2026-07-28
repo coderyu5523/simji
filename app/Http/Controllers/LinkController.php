@@ -86,16 +86,21 @@ class LinkController extends Controller
         $this->authorizeLinkAttempt($request, $voucher, $attempt);
         abort_if($attempt->status === 'submitted', 409);
 
-        $validItemIds = $attempt->test->items()->pluck('id')->all();
-        $data = $request->validate([
+        $itemsById = $attempt->test->items()->get()->keyBy('id');
+        $request->validate([
             'answers' => 'required|array',
-            'answers.*' => 'integer|min:1|max:5',
+            'answers.*' => [new \App\Rules\AnswerValue($itemsById)],
         ]);
-        foreach ($data['answers'] as $itemId => $value) {
-            if (!in_array((int) $itemId, $validItemIds, true)) continue;
+
+        foreach ($request->input('answers') as $itemId => $value) {
+            if (!isset($itemsById[(int) $itemId])) continue;
+            $prefersNot = $value === \App\Rules\AnswerValue::PREFER_NOT;
             $attempt->answers()->updateOrCreate(
                 ['test_item_id' => (int) $itemId],
-                ['value' => (int) $value]
+                [
+                    'value' => $prefersNot ? null : (int) $value,
+                    'missing_code' => $prefersNot ? \App\Rules\AnswerValue::PREFER_NOT : null,
+                ]
             );
         }
         $attempt->update(['status' => 'submitted', 'submitted_at' => now()]);
