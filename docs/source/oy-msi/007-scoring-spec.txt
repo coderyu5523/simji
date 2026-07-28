@@ -1,0 +1,671 @@
+# 원문 전사 대조용 — 원본: 007학교밖청소년_마음상태검사_개발자용_자동채점_설계서.docx
+# (docx word/document.xml 자동 추출, 수정 금지)
+
+청소년용 마음상태검사
+개발자용 자동채점 데이터 구조 및 결과문 생성 설계서
+혼합문항배치 · 요인 코드 · 역채점 · 경보조건 · 종합판정 · JSON · DB · API
+[표시작]
+문서 버전 | v1.0 / 예비검사 구현 사양
+검사 코드 | OY_MSI_V1
+대상 | 만 13~18세 청소년
+총 문항 | 60문항 / 10개 요인 / 4점 척도
+중요 고지 | 임시 절단점과 경보 규칙은 표준화 연구 후 개정
+[표끝]
+개발·검수·운영팀 공통 기준 문서
+모바일로 검사할 수 있도록 아래 내용을 코딩 하여 MD파일로 전체적으로 다운로드할 수 있도록 만들어줘. 첫화면에는 <청소년 마음상태검사>, 기본 정보입력란(성명, 학년(중1~고3), 성별, 학교명, 두번째 화면부터는 검사문항60개 제시, 4점 척도, 검사완료 후 결과페이지 및 솔루션(청소년용, 부모/보호자용)을 가시성과 가독성이 있도록 제작해줘.  오류가 없도록 정확하게 작업해줘.
+2026년 7월
+목차
+1. 문서 목적과 구현 범위
+2. 핵심 설계 원칙
+3. 코드 체계와 공통 데이터 사전
+4. 60문항 고정 혼합배치 및 문항 마스터
+5. 응답척도·역채점·결측 처리
+6. 요인별 채점과 신호등 산출
+7. 안전·환경 경보 규칙
+8. 종합판정 수식과 사례코드
+9. 결과문 생성 엔진 규칙
+10. 솔루션 추천 엔진
+11. JSON 데이터 예시
+12. 데이터베이스 테이블 설계
+13. PostgreSQL 핵심 DDL
+14. REST API 구조와 응답 예시
+15. 채점·보고서 생성 의사코드
+16. 권한·개인정보·감사로그
+17. 테스트 시나리오 및 검수 기준
+18. 배포 체크리스트
+부록 A. 코드값 사전
+부록 B. 결과 템플릿 키 규칙
+부록 C. 버전관리 원칙
+[표시작]
+문서 사용 원칙본 문서는 예비검사 구현 사양이다. 문항, 요인구조, 절단점, 경보 임계값은 표준화 연구와 실제 위기대응 검증을 거쳐 버전업한다. 과거 검사결과의 재현성을 위해 검사 버전과 채점 규칙 버전을 반드시 함께 저장한다.
+[표끝]
+1. 문서 목적과 구현 범위
+본 문서는  청소년용 마음상태검사 60문항을 단디 플랫폼 또는 별도 심리검사 시스템에 구현하기 위한 개발자용 기능 명세서이다. 프론트엔드 문항 제시부터 응답 저장, 자동채점, 위험경보, 결과문 조립, 보고서 생성, 사례관리 연계까지 일관된 규칙을 제공한다.
+1.1 구현 대상
+고정 혼합배치된 60문항 제시 및 검사 세션 관리
+일반 4점 척도와 안전문항 전용 척도 처리
+미래희망 요인의 역채점 처리
+9개 일반요인 점수와 1개 안전요인 별도 산출
+문항 응답 즉시 안전·환경 경보 평가
+요인별 초록·노랑·빨강 분류와 사례코드 산출
+청소년용, 부모·보호자용, 교사·상담자용 결과문 생성
+맞춤 솔루션 추천, 재검 일정, 사례관리 상태 저장
+검사 정의, 채점규칙, 결과 템플릿의 버전관리
+권한별 민감정보 노출 통제와 감사로그 기록
+1.2 구현 제외 또는 별도 모듈
+정신질환 자동진단 또는 의료적 처방 결정
+AI가 단독으로 자살위험을 확정하거나 사례를 종결하는 기능
+보호자에게 민감 응답을 무조건 자동 전송하는 기능
+표준화 이전의 백분위·T점수 확정 제공
+기관별 법적 신고 절차의 완전 자동화
+[표시작]
+핵심 원칙검사 엔진은 “점수 계산기”가 아니라 발견 → 안전확인 → 이해 → 연결 → 실천 → 변화추적을 지원하는 사례관리 보조 시스템으로 구현한다.
+[표끝]
+2. 핵심 설계 원칙
+[표시작]
+원칙 | 개발 적용
+비진단 원칙 | 모든 결과문에서 진단 확정 표현을 금지하고 “현재 어려움이 높게 나타남”, “전문적 확인 권고”와 같은 선별 언어를 사용한다.
+안전 우선 원칙 | 전체 총점이 낮아도 자해·자살, 학대·폭력, 온라인 착취 등 특정 응답이 양성이면 안전경보가 최종판정보다 우선한다.
+고정 혼합배치 | 요인별 묶음 반응을 줄이기 위해 문항을 혼합하되, 표준화와 재현성을 위해 개인별 무작위 섞기는 기본적으로 사용하지 않는다.
+문항 ID와 표시순서 분리 | 문항의 의미를 나타내는 영구 item_id와 검사 화면 순서 display_order를 분리하여 향후 순서 변경과 버전관리를 지원한다.
+버전 고정 | 검사를 시작한 세션은 시작 당시의 assessment_version, item_version, scoring_version, template_version을 끝까지 사용한다.
+민감정보 최소노출 | 청소년·보호자·교사·상담자별로 결과 필드를 구분하고, 자해·학대·성착취 세부응답은 최소권한 원칙으로 제한한다.
+설명가능성 | 모든 점수와 판정은 어떤 문항, 규칙, 템플릿이 적용되었는지 추적 가능해야 한다.
+실패 안전성 | 경보 전송 실패, 담당자 미확인, 보고서 생성 실패 시 조용히 무시하지 않고 재시도·상위 알림·감사로그를 남긴다.
+[표끝]
+3. 코드 체계와 공통 데이터 사전
+3.1 검사와 버전 코드
+[표시작]
+필드 | 예시 | 설명
+assessment_code | OY_MSI | 학교 밖 청소년용 마음상태검사 제품 코드
+assessment_version | 1.0.0 | 문항 구성과 표시순서 버전
+scoring_version | 1.0.0 | 채점·절단점·판정 규칙 버전
+template_version | 1.0.0 | 결과문과 솔루션 문안 버전
+locale | ko-KR | 문항과 결과문 언어
+norm_version | PRE_STANDARDIZATION | 표준화 전 규준 상태
+[표끝]
+3.2 요인 코드
+[표시작]
+코드 | 요인명 | 원문항 | 수 | 처리
+DEP | 우울·무기력 | 1~6 | 6 | 위험요인
+ANX | 불안·긴장 | 7~12 | 6 | 위험요인
+IMP | 분노·충동조절 | 13~18 | 6 | 위험요인
+TRM | 외상반응·안전감 | 19~24 | 6 | 위험요인/환경경보
+ISO | 고립·대인관계 | 25~30 | 6 | 위험요인
+FAM | 가족·보호환경 | 31~36 | 6 | 위험요인/환경경보
+LIF | 생활리듬·신체기능 | 37~42 | 6 | 위험요인
+RSK | 디지털·물질·위험행동 | 43~48 | 6 | 위험요인/환경경보
+FUT | 미래희망·학업진로 적응 | 49~54 | 6 | 보호문항 포함 위험요인
+SAF | 자해·자살 안전 | 55~60 | 6 | 총점 제외 별도 안전판정
+[표끝]
+3.3 공통 상태 코드
+[표시작]
+분류 | 코드 | 설명
+신호등 | GREEN | 원점수 0~5 / 위험지수 0~29.9
+신호등 | YELLOW | 원점수 6~10 / 위험지수 30~59.9
+신호등 | RED | 원점수 11~18 / 위험지수 60~100
+채점상태 | COMPLETE | 6문항 모두 유효응답
+채점상태 | PARTIAL | 5문항 유효응답, 임시 환산점수 사용
+채점상태 | UNSCORABLE | 유효응답 4문항 이하
+안전 | S0~S3 | 자해·자살 안전 수준
+환경 | E0~E3 | 폭력·학대·착취·물질 등 환경위험 수준
+사례 | G0/Y1/Y2/R1/R2/C1/C2/C3 | 일반 프로파일과 안전 우선순위를 반영한 최종 사례코드
+[표끝]
+4. 60문항 고정 혼합배치 및 문항 마스터
+문항은 10개 요인이 연속적으로 드러나지 않도록 고정 혼합배치한다. 안전문항은 후반부에 한꺼번에 몰아넣지 않고 중간중간 분산하되, 문항별 시간기준과 응답척도를 화면에 명확히 표시한다. 개인별 무작위 순서변경은 표준화 전 기본값으로 금지한다.
+[표시작]
+ID 설계Q001~Q060은 화면 표시순서 ID이다. DEP01, SAF04와 같은 item_id는 문항의 영구 의미 ID이며, 향후 표시순서가 변경되어도 유지한다. 데이터 저장과 채점은 item_id를 기준으로 수행한다.
+[표끝]
+[표시작]
+순서 | item_id | 요인 | 기간 | 역 | 척도 | 경보 | 문항
+Q001 | DEP01 | 우울·무기력 | 최근 2주 | N | GEN | - | 요즘 특별한 이유가 없어도 마음이 가라앉거나 슬프다.
+Q002 | LIF01 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 자는 시간과 일어나는 시간이 일정하지 않다.
+Q003 | ANX01 | 불안·긴장 | 최근 2주 | N | GEN | - | 별일이 없어도 나쁜 일이 생길 것 같아 걱정된다.
+Q004 | ISO01 | 고립·대인관계 | 최근 2주 | N | GEN | - | 내 마음을 솔직하게 이야기할 사람이 없다고 느낀다.
+Q005 | FUT01 | 미래희망·학업진로 적응 | 최근 2주 | N | GEN | - | 앞으로 내 삶이 나아질 가능성이 거의 없다고 느낀다.
+Q006 | IMP01 | 분노·충동조절 | 최근 2주 | N | GEN | - | 작은 일에도 쉽게 짜증이 나거나 화가 난다.
+Q007 | FAM01 | 가족·보호환경 | 최근 2주 | N | GEN | - | 가족이나 보호자와 이야기하면 갈등이 더 심해지는 경우가 많다.
+Q008 | TRM01 | 외상반응·안전감 | 최근 2주 | N | GEN | - | 과거의 힘든 일이 갑자기 떠올라 괴로울 때가 있다.
+Q009 | RSK01 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | - | 스마트폰이나 게임 때문에 해야 할 일을 하지 못한다.
+Q010 | SAF01 | 자해·자살 안전 | 최근 2주 | N | SAF-T | 즉시평가 | 차라리 내가 없어지는 것이 낫겠다고 생각한 적이 있다.
+Q011 | ANX02 | 불안·긴장 | 최근 2주 | N | GEN | - | 앞으로 무엇을 해야 할지 생각하면 마음이 답답해진다.
+Q012 | FUT02 | 미래희망·학업진로 적응 | 최근 2주 | N | GEN | - | 내가 무엇을 잘하고 어떤 일을 하고 싶은지 잘 모르겠다.
+Q013 | FAM02 | 가족·보호환경 | 최근 2주 | N | GEN | - | 가족이나 보호자가 내 마음과 상황을 이해하지 못한다고 느낀다.
+Q014 | DEP02 | 우울·무기력 | 최근 2주 | N | GEN | - | 예전에 좋아했던 일도 별로 즐겁지 않다.
+Q015 | RSK02 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | - | 스마트폰이나 게임을 줄이려고 해도 잘되지 않는다.
+Q016 | TRM02 | 외상반응·안전감 | 최근 2주 | N | GEN | - | 힘든 일을 떠올리게 하는 사람이나 장소를 피한다.
+Q017 | LIF02 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 밤에 깨어 있고 낮에 자는 생활이 반복된다.
+Q018 | SAF02 | 자해·자살 안전 | 최근 2주 | N | SAF-T | 즉시평가 | 내 몸을 일부러 다치게 하고 싶다는 생각이 든 적이 있다.
+Q019 | IMP02 | 분노·충동조절 | 최근 2주 | N | GEN | - | 화가 나면 심한 말을 하거나 물건을 던지고 싶어진다.
+Q020 | ISO02 | 고립·대인관계 | 최근 2주 | N | GEN | - | 다른 사람을 만나거나 연락하는 것이 부담스럽다.
+Q021 | ISO03 | 고립·대인관계 | 최근 2주 | N | GEN | - | 며칠 동안 집이나 방 밖으로 거의 나가지 않을 때가 있다.
+Q022 | IMP03 | 분노·충동조절 | 최근 2주 | N | GEN | - | 감정이 올라오면 내 말과 행동을 멈추기 어렵다.
+Q023 | LIF03 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 식사를 거르거나 한꺼번에 많이 먹는 경우가 많다.
+Q024 | ANX03 | 불안·긴장 | 최근 2주 | N | GEN | - | 다른 사람이 나를 어떻게 생각할지 지나치게 신경 쓰인다.
+Q025 | TRM03 | 외상반응·안전감 | 최근 2주 | N | GEN | - | 작은 소리나 움직임에도 깜짝 놀라거나 긴장한다.
+Q026 | SAF03 | 자해·자살 안전 | 최근 2주 | N | SAF-T | 즉시평가 | 스스로 목숨을 끊고 싶다는 생각을 한 적이 있다.
+Q027 | RSK03 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | - | 온라인 활동을 하지 못하면 불안하거나 짜증이 심해진다.
+Q028 | DEP03 | 우울·무기력 | 최근 2주 | N | GEN | - | 아무것도 시작하고 싶지 않고 가만히 있고 싶다.
+Q029 | FUT03 | 미래희망·학업진로 적응 | 최근 2주 | N | GEN | - | 공부나 일을 시작해도 끝까지 해내지 못할 것 같다.
+Q030 | FAM03 | 가족·보호환경 | 최근 2주 | N | GEN | - | 집에서 무시당하거나 모욕적인 말을 듣는 경우가 있다.
+Q031 | FUT04 | 미래희망·학업진로 적응 | 최근 2주 | Y | GEN | - | 나에게 맞는 공부나 일을 찾기 위해 새로운 것을 시도할 생각이 있다.
+Q032 | DEP04 | 우울·무기력 | 최근 2주 | N | GEN | - | 내가 쓸모없거나 다른 사람에게 짐이 되는 것처럼 느껴진다.
+Q033 | RSK04 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | 조건경보 | 기분을 풀거나 힘든 생각을 잊기 위해 술이나 담배를 사용한다.
+Q034 | SAF04 | 자해·자살 안전 | 최근 2주 | N | SAF-T | 즉시평가 | 목숨을 끊을 구체적인 방법, 장소 또는 도구를 생각하거나 준비한 적이 있다.
+Q035 | FAM04 | 가족·보호환경 | 최근 2주 | N | GEN | - | 힘든 일이 생겨도 가족이나 보호자에게 도움을 기대하기 어렵다.
+Q036 | ANX04 | 불안·긴장 | 최근 2주 | N | GEN | - | 여러 생각이 계속 떠올라 마음을 편하게 하기 어렵다.
+Q037 | ISO04 | 고립·대인관계 | 최근 2주 | N | GEN | - | 다른 사람은 나를 이해하지 못할 것이라고 생각한다.
+Q038 | IMP04 | 분노·충동조절 | 최근 2주 | N | GEN | - | 결과를 충분히 생각하지 않고 행동할 때가 있다.
+Q039 | LIF04 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 씻기, 옷 갈아입기, 방 정리 같은 일상관리가 귀찮고 어렵다.
+Q040 | TRM04 | 외상반응·안전감 | 최근 2주 | N | GEN | - | 너무 힘들 때 현실이 아닌 것 같거나 멍해질 때가 있다.
+Q041 | TRM05 | 외상반응·안전감 | 최근 2주 | N | GEN | - | 다른 사람이 나를 해치거나 위협할 것 같아 주변을 계속 살핀다.
+Q042 | SAF05 | 자해·자살 안전 | 최근 12개월 | N | SAF-B | 즉시평가 | 최근 12개월 동안 내 몸을 일부러 다치게 한 적이 있다.
+Q043 | LIF05 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 하루 동안 거의 움직이지 않거나 밖에 나가지 않는다.
+Q044 | FUT05 | 미래희망·학업진로 적응 | 최근 2주 | Y | GEN | - | 작은 목표를 세우면 조금씩 실천할 수 있다.
+Q045 | IMP05 | 분노·충동조절 | 최근 2주 | N | GEN | - | 화가 난 뒤 내가 한 말이나 행동을 후회하는 경우가 많다.
+Q046 | DEP05 | 우울·무기력 | 최근 2주 | N | GEN | - | 충분히 쉬어도 몸과 마음이 지쳐 있다.
+Q047 | FAM05 | 가족·보호환경 | 최근 2주 | N | GEN | 조건경보 | 가족이나 보호자가 나를 때리거나 심하게 위협하는 경우가 있다.
+Q048 | ANX05 | 불안·긴장 | 최근 2주 | N | GEN | - | 긴장하면 심장이 빨리 뛰거나 숨이 답답해질 때가 있다.
+Q049 | RSK05 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | 조건경보 | 인터넷 도박, 위험한 거래 또는 큰돈을 잃을 수 있는 활동을 한 적이 있다.
+Q050 | ISO05 | 고립·대인관계 | 최근 2주 | N | GEN | - | 상처받을까 봐 사람을 믿거나 가까이하기 어렵다.
+Q051 | RSK06 | 디지털·물질·위험행동 | 최근 2주 | N | GEN | 조건경보 | 온라인에서 돈, 개인정보, 사진 또는 영상을 보내라는 압박을 받은 적이 있다.
+Q052 | ISO06 | 고립·대인관계 | 최근 2주 | N | GEN | - | 힘들어도 다른 사람에게 도움을 요청하지 않고 혼자 참는다.
+Q053 | DEP06 | 우울·무기력 | 최근 2주 | N | GEN | - | 앞으로 내 상황이 좋아질 것이라는 생각이 잘 들지 않는다.
+Q054 | TRM06 | 외상반응·안전감 | 최근 2주 | N | GEN | 조건경보 | 지금 머무는 곳에서 폭력이나 원하지 않는 신체접촉을 당할까 두렵다.
+Q055 | FAM06 | 가족·보호환경 | 최근 2주 | N | GEN | - | 가족과의 갈등 때문에 집을 나가고 싶거나 돌아가기 싫을 때가 있다.
+Q056 | ANX06 | 불안·긴장 | 최근 2주 | N | GEN | - | 새로운 장소에 가거나 낯선 사람을 만나는 것이 두렵다.
+Q057 | FUT06 | 미래희망·학업진로 적응 | 최근 2주 | Y | GEN | - | 적절한 도움을 받으면 다시 시작할 수 있다고 생각한다.
+Q058 | IMP06 | 분노·충동조절 | 최근 2주 | N | GEN | - | 기분이 나쁘면 위험하거나 무모한 행동을 하고 싶어진다.
+Q059 | LIF06 | 생활리듬·신체기능 | 최근 2주 | N | GEN | - | 해야 할 일을 계획하고 정해진 시간에 시작하기 어렵다.
+Q060 | SAF06 | 자해·자살 안전 | 최근 12개월 | N | SAF-B | 즉시평가 | 최근 12개월 동안 실제로 목숨을 끊으려는 행동을 한 적이 있다.
+[표끝]
+4.1 혼합배치 검증 규칙
+동일 요인 문항은 연속 배치하지 않는다.
+긍정형 역채점 문항 FUT04~FUT06은 검사 후반에 분산한다.
+안전문항은 Q010, Q018, Q026, Q034, Q042, Q060에 분산한다.
+안전문항이 제시될 때마다 화면 상단에 해당 시간기준을 다시 표시한다.
+SAF 문항 응답은 다음 문항 이동 전에 로컬 및 서버 경보 규칙을 평가한다.
+검사 정의 버전이 같으면 모든 대상자에게 동일한 순서를 사용한다.
+5. 응답척도·역채점·결측 처리
+5.1 척도 코드
+[표시작]
+코드 | 적용 문항 | 응답값 | 화면 문구
+GEN_4PT | 일반문항 1~54 | 0 | 전혀 그렇지 않다
+GEN_4PT | 일반문항 1~54 | 1 | 가끔 그렇다
+GEN_4PT | 일반문항 1~54 | 2 | 자주 그렇다
+GEN_4PT | 일반문항 1~54 | 3 | 거의 항상 그렇다
+SAF_THOUGHT_4PT | SAF01~SAF04 | 0/1/2/3 | 전혀 없음 / 한두 번 / 여러 번 / 자주 또는 지금도
+SAF_BEHAVIOR_4PT | SAF05~SAF06 | 0/1/2/3 | 없음 / 1회 / 2~3회 / 4회 이상 또는 최근 1개월
+공통 | 모든 문항 | PREFER_NOT | 응답하기 어려움
+[표끝]
+5.2 역채점
+FUT04, FUT05, FUT06은 보호자원을 긍정적으로 묻는 문항이다. 요인점수는 높을수록 위험이 높도록 방향을 통일하기 위해 다음과 같이 역채점한다.
+역채점 공식
+[표시작]
+scored_value = 3 - raw_value# raw 0 -> scored 3# raw 1 -> scored 2# raw 2 -> scored 1# raw 3 -> scored 0
+[표끝]
+5.3 결측과 응답거부
+[표시작]
+조건 | 처리 | 보고서
+요인 6문항 모두 유효 | COMPLETE, 단순합산 | 정상 점수·신호등 표시
+요인 5문항 유효 | PARTIAL, sum × 6/5 환산 | 임시 점수 표시 + “주의 해석”
+요인 4문항 이하 유효 | UNSCORABLE | 해당 요인 점수 미제공
+SAF 문항 1개 이상 PREFER_NOT | 최소 S1 안전주의 | 상담자 추가 확인 필요
+전체 무응답 6개 이상 | 세션 해석보류 | 재검 또는 면담 권고
+[표끝]
+[표시작]
+권장 운영가능하면 일반문항은 모두 응답하도록 안내하되 민감문항에는 “응답하기 어려움” 선택지를 제공한다. 안전문항의 응답거부를 0점으로 처리해서는 안 된다.
+[표끝]
+6. 요인별 채점과 신호등 산출
+6.1 요인 원점수
+요인점수
+[표시작]
+factor_raw = SUM(scored_value for six items)# COMPLETE range: 0..18if answered_count == 5:    factor_raw_prorated = ROUND(sum_answered * 6 / 5, 1)elif answered_count <= 4:    factor_raw_prorated = null
+[표끝]
+6.2 위험지수
+위험지수
+[표시작]
+risk_index = ROUND(factor_raw / 18 * 100, 1)# COMPLETE인 경우 0.0..100.0
+[표끝]
+6.3 예비 신호등
+[표시작]
+원점수 | 위험지수 | band | 의미
+0~5 | 0.0~29.9 | GREEN | 현재 뚜렷한 어려움이 낮은 수준
+6~10 | 30.0~59.9 | YELLOW | 관심과 예방적 지원이 필요한 수준
+11~18 | 60.0~100.0 | RED | 전문적 확인과 적극적 지원이 필요한 수준
+[표끝]
+[표시작]
+표준화 전 임시 기준이 절단점은 단디의 0~29/30~59/60~100 신호등 표시체계를 적용한 예비 운영값이다. 최종 기준은 표준화 표본의 분포, 임상·상담 준거, ROC, 민감도·특이도를 기반으로 scoring_version을 새로 발행하여 적용한다.
+[표끝]
+6.4 전체 위험지수
+자해·자살 안전요인 SAF는 전체 위험총점에 포함하지 않는다. 9개 일반요인이 모두 COMPLETE인 경우 전체 위험지수는 두 방식이 동일하다.
+전체 위험지수
+[표시작]
+overall_raw = DEP + ANX + IMP + TRM + ISO + FAM + LIF + RSK + FUToverall_index = ROUND(overall_raw / 162 * 100, 1)# 또는 9개 factor risk_index의 산술평균
+[표끝]
+전체 지수는 전반적 부담을 요약하지만 특정 요인의 고위험을 상쇄할 수 있으므로 최종 사례코드는 전체 지수보다 요인별 빨강 수와 안전코드를 우선한다.
+7. 안전·환경 경보 규칙
+7.1 자해·자살 안전 수준 S0~S3
+[표시작]
+수준 | 대표 조건 | 시스템 조치
+S0 | SAF01~SAF06 모두 0, 응답거부 없음 | 일반 결과 제공, 위기 연락처 상시 표시
+S1 | SAF01>=1 또는 SAF02=1 또는 SAF03=1 또는 SAF05=1 또는 SAF 무응답 | 당일/빠른 확인, 24~72시간 추적
+S2 | SAF01>=2, SAF02>=2, SAF03=2, SAF04=1, SAF05>=2 중 하나 | 당일 전문면담, 안전계획, 24시간 내 확인
+S3 | SAF03=3, SAF04>=2, SAF06>=1, 현재 의도·계획·수단·최근 시도 중 하나 | 즉시 전문 안전평가, 필요 시 112·119·응급연계
+[표끝]
+[표시작]
+중요 구분S3는 “동일하게 응급실로 자동 이송”을 뜻하지 않는다. 과거 시도 응답만으로도 당일 즉시 전문평가가 필요하지만, 실제 응급조치는 current_intent, current_plan, means_access, attempt_within_72h, ongoing_injury 등 추가 안전평가 필드로 결정한다.
+[표끝]
+7.2 급성 응급 플래그
+급성 응급 판정
+[표시작]
+acute_emergency = (    current_intent is True    or current_plan is True    or attempt_within_72h is True    or ongoing_severe_injury is True    or (means_access is True and (current_intent or current_plan)))
+[표끝]
+7.3 환경위험 수준 E0~E3
+[표시작]
+수준 | 문항·조건 | 조치
+E0 | 경보 문항 모두 0 | 일반 운영
+E1 | TRM06=1, FAM05=1, RSK06=1, RSK05=1 중 하나 | 상담 시 구체상황 확인
+E2 | TRM06=2, FAM05=2, RSK06=2, RSK04>=2, RSK05>=2 중 하나 | 당일 비공개 면담·보호계획 검토
+E3 | TRM06=3, FAM05=3, RSK06=3, 현재 안전한 거주지 없음, 급성중독 | 즉시 안전확보·보호·응급 또는 신고 절차 검토
+[표끝]
+7.4 경보 엔진의 공통 필드
+[표시작]
+필드 | 형식 | 예시
+alert_id | UUID | 경보 이벤트 고유값
+rule_code | string | ALERT_SAF_S3_PLAN
+severity | INFO/WARN/HIGH/CRITICAL | CRITICAL
+source_item_id | string | SAF04
+trigger_value | json | {"raw":2}
+action_code | string | IMMEDIATE_SAFETY_ASSESSMENT
+notify_roles | string[] | ["COUNSELOR","CASE_MANAGER"]
+ack_status | OPEN/ACK/RESOLVED | OPEN
+disclosure_level | RESTRICTED/HIGHLY_RESTRICTED | HIGHLY_RESTRICTED
+[표끝]
+7.5 경보 규칙 JSON 표현
+예시
+[표시작]
+{  "rule_code": "ALERT_SAF_S3_PLAN",  "version": "1.0.0",  "scope": "ITEM_RESPONSE",  "when": {    "item_id": "SAF04",    "operator": ">=",    "value": 2  },  "set": {    "safety_level": "S3",    "severity": "CRITICAL"  },  "actions": [    "PAUSE_STANDARD_RESULT",    "NOTIFY_COUNSELOR",    "OPEN_SAFETY_ASSESSMENT"  ],  "notify_roles": [    "COUNSELOR",    "CASE_MANAGER"  ],  "guardian_auto_disclosure": false}
+[표끝]
+8. 종합판정 수식과 사례코드
+8.1 일반 프로파일 코드
+일반 사례코드
+[표시작]
+red_count = COUNT(factor.band == 'RED' for 9 general factors)yellow_count = COUNT(factor.band == 'YELLOW' for 9 general factors)if red_count >= 2: general_code = 'R2'elif red_count == 1: general_code = 'R1'elif yellow_count >= 3: general_code = 'Y2'elif yellow_count >= 1: general_code = 'Y1'else: general_code = 'G0'
+[표끝]
+8.2 안전 우선 최종코드
+최종 사례코드
+[표시작]
+highest_safety = max_level(safety_level, environment_level)if highest_safety == 3: final_case_code = 'C3'elif highest_safety == 2: final_case_code = 'C2'elif highest_safety == 1: final_case_code = 'C1'else: final_case_code = general_code
+[표끝]
+[표시작]
+코드 | 분류 | 권장 처리
+G0 | 안정·예방군 | 자기관리, 1~3개월 재검
+Y1 | 단일 관심군 | 관련영역 예방상담, 4주 재검
+Y2 | 복합 관심군 | 초기면담, 단기개입, 2~4주 재검
+R1 | 단일 고위험군 | 1주 이내 전문면담, 2주 재검
+R2 | 복합 고위험군 | 다학제 사례관리, 주 1회 모니터링
+C1 | 안전주의군 | 당일 또는 빠른 안전확인
+C2 | 안전고위험군 | 당일 전문 안전평가·24시간 추적
+C3 | 긴급위기군 | 즉시 안전평가, 필요 시 응급·보호 연계
+[표끝]
+8.3 판정 우선순위
+acute_emergency가 true이면 일반 보고서보다 긴급 대응화면과 담당자 연결을 먼저 실행한다.
+C3, C2, C1 순으로 안전·환경 코드를 우선한다.
+안전코드가 없으면 R2, R1, Y2, Y1, G0 순으로 일반 사례코드를 적용한다.
+전체 위험지수는 보고서 설명용으로 제공하되 최종 사례코드를 낮추는 데 사용하지 않는다.
+점수 미산출 요인이 있으면 final_score_status를 PARTIAL 또는 INCOMPLETE로 표시한다.
+9. 결과문 생성 엔진 규칙
+9.1 대상별 결과 채널
+[표시작]
+audience_code | 대상 | 노출 범위
+YOUTH | 청소년 본인 | 쉬운 언어, 상위 3요인, 강점, 실천과제, 안전연락처
+GUARDIAN | 부모·보호자 | 요인 요약과 지원행동. 민감 세부응답은 자동 비공개
+TEACHER_SUMMARY | 일반 교사·지도자 | 기능적 지원 필요와 기관 내 행동지침 중심
+PROFESSIONAL | 전문상담자·임상가 | 문항응답, 경보, 점수, 추가면담 질문, 사례개념화
+CASE_MANAGER | 사례관리자 | 서비스 연계, 담당자, 추적일정, 조치상태
+[표끝]
+9.2 템플릿 키
+키 명명규칙
+[표시작]
+result.{audience}.{factor}.{band}.{component}예: result.YOUTH.DEP.RED.meaning    result.GUARDIAN.DEP.RED.actions    result.PROFESSIONAL.DEP.RED.clinical_note
+[표끝]
+component는 headline, meaning, action, avoid, referral, followup, strength, safety_notice 등을 사용한다. 문안은 코드에 하드코딩하지 않고 interpretation_templates 테이블에서 버전별로 관리한다.
+9.3 결과문 조립 순서
+안전·환경 경보가 S1/E1 이상이면 안전 안내 블록을 최상단에 배치한다.
+요인별 priority_score를 계산하여 상위 3개 요인을 선정한다.
+상위 요인은 상세문안을, 나머지는 표 형식 요약문안을 사용한다.
+보호요인 또는 강점을 최소 1개 포함한다.
+청소년용은 최대 3개의 실천과제, 보호자용은 최대 3개의 지원행동, 전문가용은 최대 5개의 개입권고를 제시한다.
+중복되는 솔루션은 dedupe_group으로 하나만 남긴다.
+마지막에 재검시점과 비진단 고지문을 붙인다.
+9.4 요인 우선순위
+동일한 신호등·위험지수일 때의 운영상 우선순위는 다음과 같다. 이는 진단적 중요도의 순위가 아니라 결과문을 결정하기 위한 결정적 tie-breaker이다.
+동점 우선순위
+[표시작]
+SAFETY > DEP > TRM > FAM > RSK > IMP > ISO > LIF > ANX > FUT
+[표끝]
+9.5 우선순위 점수
+상위요인 선정
+[표시작]
+severity_weight = {'GREEN':0, 'YELLOW':100, 'RED':200}priority_score = (    severity_weight[band]    + risk_index    + alert_bonus    + tie_break_weight)# alert_bonus: 해당 요인에 HIGH/CRITICAL 경보가 있으면 +1000
+[표끝]
+9.6 결과문 언어 규칙
+[표시작]
+금지 표현 | 권장 표현
+우울증이다 | 우울·무기력 관련 어려움이 높게 나타났다
+자살성향이 있다 | 자해·자살 안전에 대한 즉각적인 추가 확인이 필요하다
+비정상이다 | 현재 해당 기능이 많이 흔들리고 있을 수 있다
+게으르다 | 마음의 에너지와 생활기능이 낮아 행동 시작이 어려울 수 있다
+문제청소년이다 | 현재 여러 지원이 필요한 상태일 수 있다
+부모 탓이다 | 가족환경이 보호요인으로 충분히 기능하는지 확인이 필요하다
+[표끝]
+9.7 템플릿 레코드 예시
+예시
+[표시작]
+{  "template_key": "result.YOUTH.DEP.RED.meaning",  "locale": "ko-KR",  "template_version": "1.0.0",  "text": "현재 마음의 에너지가 많이 떨어져 혼자 힘으로 일상을 유지하기 어려울 수 있어. 이는 게으르거나 의지가 약해서라고 단정할 수 없어.",  "required_variables": [],  "disclosure_level": "NORMAL",  "active": true}
+[표끝]
+9.8 변수 치환
+[표시작]
+변수 | 예시 | 용도
+{{name}} | 민수 | 청소년 동의 시 이름 또는 닉네임
+{{top_factor_name}} | 우울·무기력 | 종합문안
+{{risk_index}} | 72.2 | 전문가용 수치
+{{recheck_days}} | 14 | 재검 안내
+{{support_contact}} | 청소년상담1388 | 지원기관
+{{strength_text}} | 도움을 받으면 다시 시작할 수 있다는 기대 | 강점 문안
+[표끝]
+10. 솔루션 추천 엔진
+10.1 솔루션 코드 예시
+[표시작]
+solution_code | 연계 | 제목 | dedupe_group
+SOL_DEP_ACTIVATION | DEP | 행동활성화·작은 활동 시작 | 생활회복
+SOL_ANX_BREATHING | ANX | 호흡·이완·불안기록 | 정서조절
+SOL_IMP_STOP | IMP | 멈춤-거리두기-재대화 | 충동조절
+SOL_TRM_SAFETY | TRM | 현재 안전확인·감각접지 | 안전
+SOL_ISO_CONNECT | ISO | 부담 낮은 1인 연결·비대면 상담 | 관계
+SOL_FAM_PROTECT | FAM | 보호자 안전성 평가·중재 | 가족/보호
+SOL_LIF_7DAY | LIF | 7일 생활리듬 회복 | 생활회복
+SOL_RSK_DIGITAL | RSK | 디지털·물질·도박 위험 점검 | 위험행동
+SOL_FUT_3MONTH | FUT | 3개월 진로탐색·작은 목표 | 진로
+SOL_SAF_PLAN | SAF | 개인 안전계획·즉시 연결 | 안전
+[표끝]
+10.2 추천 규칙
+S2/S3 또는 E2/E3가 있으면 안전 솔루션을 첫 번째로 고정한다.
+상위 3개 요인의 band에 맞는 솔루션을 선택한다.
+dedupe_group이 같은 솔루션은 가장 우선순위가 높은 하나만 유지한다.
+청소년용 실천과제는 한 번에 3개 이하, 1개 과제는 5~15분 안에 시작 가능한 행동으로 제시한다.
+부모용은 비난·강압 금지와 구체적 지원행동을 포함한다.
+전문가용은 추가평가, 개입, 연계, 재검을 구분하여 제공한다.
+10.3 강점 추출 규칙
+[표시작]
+strength_code | 조건 | 표시 문안
+TRY_NEW | FUT04 raw>=2 | 새로운 공부나 일을 시도할 마음이 남아 있음
+SMALL_GOAL | FUT05 raw>=2 | 작은 목표를 실천할 가능성이 있음
+RECOVERY_HOPE | FUT06 raw>=2 | 도움을 받으면 다시 시작할 수 있다는 기대가 있음
+HONEST_RESPONSE | 응답품질 양호 | 현재 상태를 솔직하게 점검한 행동 자체가 강점임
+HELP_SEEKING | 초기정보에서 지원희망=true | 도움을 받아볼 의향이 있음
+[표끝]
+11. JSON 데이터 예시
+11.1 검사 정의
+검사 정의 축약 예시
+[표시작]
+{  "assessment_code": "OY_MSI",  "assessment_version": "1.0.0",  "scoring_version": "1.0.0",  "template_version": "1.0.0",  "locale": "ko-KR",  "fixed_order": true,  "total_items": 60,  "factors": [    {      "code": "DEP",      "item_ids": [        "DEP01",        "DEP02",        "DEP03",        "DEP04",        "DEP05",        "DEP06"      ],      "max_score": 18    },    {      "code": "FUT",      "item_ids": [        "FUT01",        "FUT02",        "FUT03",        "FUT04",        "FUT05",        "FUT06"      ],      "reverse_item_ids": [        "FUT04",        "FUT05",        "FUT06"      ],      "max_score": 18    },    {      "code": "SAF",      "item_ids": [        "SAF01",        "SAF02",        "SAF03",        "SAF04",        "SAF05",        "SAF06"      ],      "included_in_overall": false    }  ],  "bands": {    "GREEN": {      "min": 0,      "max": 5    },    "YELLOW": {      "min": 6,      "max": 10    },    "RED": {      "min": 11,      "max": 18    }  }}
+[표끝]
+11.2 문항 정의
+문항 마스터 예시
+[표시작]
+{  "item_id": "FUT04",  "display_id": "Q031",  "display_order": 31,  "factor_code": "FUT",  "text": "나에게 맞는 공부나 일을 찾기 위해 새로운 것을 시도할 생각이 있다.",  "timeframe_code": "PAST_2_WEEKS",  "response_scale_code": "GEN_4PT",  "reverse_scored": true,  "alert_rule_codes": [],  "item_version": "1.0.0",  "active": true}
+[표끝]
+11.3 응답 저장 요청
+POST /responses 예시
+[표시작]
+{  "session_id": "ses_01J2ABCDEF",  "responses": [    {      "item_id": "DEP01",      "raw_value": 2,      "answered_at": "2026-07-25T13:20:10+09:00",      "latency_ms": 4200    },    {      "item_id": "FUT04",      "raw_value": 3,      "answered_at": "2026-07-25T13:26:04+09:00",      "latency_ms": 5100    },    {      "item_id": "SAF03",      "raw_value": 1,      "answered_at": "2026-07-25T13:24:33+09:00",      "latency_ms": 7300    }  ],  "client": {    "platform": "WEB",    "app_version": "2.4.0",    "locale": "ko-KR"  }}
+[표끝]
+11.4 채점결과
+완료 결과 예시
+[표시작]
+{  "session_id": "ses_01J2ABCDEF",  "versions": {    "assessment": "1.0.0",    "scoring": "1.0.0",    "template": "1.0.0"  },  "score_status": "COMPLETE",  "overall": {    "raw": 78,    "max": 162,    "risk_index": 48.1,    "index_band": "YELLOW"  },  "profile": {    "general_case_code": "R1",    "final_case_code": "C1",    "red_count": 1,    "yellow_count": 4  },  "safety": {    "suicide_level": "S1",    "environment_level": "E0",    "acute_emergency": false,    "open_alerts": 1  },  "factors": [    {      "code": "DEP",      "raw": 12,      "max": 18,      "risk_index": 66.7,      "band": "RED",      "rank": 1,      "score_status": "COMPLETE"    },    {      "code": "LIF",      "raw": 10,      "max": 18,      "risk_index": 55.6,      "band": "YELLOW",      "rank": 2,      "score_status": "COMPLETE"    },    {      "code": "FUT",      "raw": 7,      "max": 18,      "risk_index": 38.9,      "band": "YELLOW",      "rank": 3,      "score_status": "COMPLETE"    }  ],  "strengths": [    "TRY_NEW",    "RECOVERY_HOPE"  ],  "recommended_solutions": [    "SOL_SAF_PLAN",    "SOL_DEP_ACTIVATION",    "SOL_LIF_7DAY"  ],  "recheck": {    "recommended_days": 14,    "reason": "RED_FACTOR_OR_SAFETY_S1"  }}
+[표끝]
+11.5 결과문 조립 응답
+보고서 API 예시
+[표시작]
+{  "report_id": "rpt_01J2XYZ",  "audience": "YOUTH",  "locale": "ko-KR",  "sections": [    {      "type": "SAFETY_NOTICE",      "priority": 1,      "template_key": "result.YOUTH.SAF.S1.notice",      "text": "최근 사라지고 싶다는 생각이 일부 나타났어. 가능한 한 오늘 상담자에게 현재 상태를 이야기해 줘."    },    {      "type": "SUMMARY",      "priority": 2,      "text": "최근 가장 도움이 필요한 부분은 우울·무기력과 생활리듬으로 나타났어."    },    {      "type": "FACTOR",      "factor_code": "DEP",      "band": "RED",      "text": "현재 마음의 에너지가 많이 떨어져 혼자 힘으로 일상을 유지하기 어려울 수 있어."    },    {      "type": "STRENGTH",      "text": "도움을 받으면 다시 시작할 수 있다는 기대가 남아 있어."    },    {      "type": "ACTION",      "solution_code": "SOL_DEP_ACTIVATION",      "steps": [        "오늘 할 일 한 가지 정하기",        "10분 밖에 나가기",        "믿을 수 있는 사람에게 상태 말하기"      ]    }  ]}
+[표끝]
+12. 데이터베이스 테이블 설계
+권장 DB는 PostgreSQL이다. 검사 정의와 실행데이터를 분리하고, 신원정보는 가능하면 별도 Identity/CRM 영역에 저장한다. assessment_session에는 내부 subject_id만 저장하고 이름·전화번호 등의 직접식별자는 최소화한다.
+[표시작]
+테이블 | 목적 | 핵심 필드
+assessments | 검사 제품 기본정보 | assessment_id, code, name, status
+assessment_versions | 검사 버전 스냅샷 | assessment_version_id, version, published_at
+factors | 요인 정의 | factor_id, code, name, display_order
+items | 영구 문항 ID | item_id, factor_id, sensitivity
+item_versions | 문항 문구·순서·척도 버전 | item_version_id, text, display_order, reverse_scored
+response_scales | 응답척도 | scale_code, options_json
+scoring_rules | 채점·절단점 규칙 | scoring_version, rule_type, rule_json
+alert_rules | 안전·환경 경보 | rule_code, expression_json, severity
+interpretation_templates | 결과문 템플릿 | template_key, audience, text, version
+solution_catalog | 솔루션 콘텐츠 | solution_code, factor_code, steps_json
+assessment_sessions | 검사 세션 | session_id, subject_id, version refs, status
+responses | 문항 응답 | session_id, item_id, raw_value, scored_value
+factor_scores | 요인별 산출값 | session_id, factor_code, raw, risk_index, band
+assessment_results | 종합판정 | overall_index, safety levels, case codes
+alert_events | 발생 경보 | rule_code, severity, ack_status
+safety_assessments | 추가 안전평가 | current_intent, plan, means, clinical_judgment
+reports | 생성 보고서 | audience, template_version, storage_uri
+case_actions | 상담·연계·재검 조치 | action_code, due_at, completed_at
+consent_records | 동의와 공개범위 | consent_type, granted, scope_json
+audit_logs | 열람·변경 기록 | actor_id, action, resource, before/after
+[표끝]
+12.1 핵심 관계
+assessments 1:N assessment_versions
+assessment_versions N:M item_versions(버전 스냅샷 연결)
+assessment_sessions N:1 assessment_versions / scoring_versions / template_versions
+assessment_sessions 1:N responses, factor_scores, alert_events, reports, case_actions
+alert_events 0:1 또는 1:N safety_assessments
+consent_records는 subject/session/report disclosure 범위를 제어
+audit_logs는 민감 데이터 조회와 변경을 모두 기록
+13. PostgreSQL 핵심 DDL
+핵심 DDL 예시
+[표시작]
+CREATE TYPE session_status AS ENUM  ('CREATED','IN_PROGRESS','PAUSED','COMPLETED','INVALID','CANCELLED');CREATE TYPE score_band AS ENUM ('GREEN','YELLOW','RED');CREATE TYPE ack_status AS ENUM ('OPEN','ACKNOWLEDGED','RESOLVED','DISMISSED');CREATE TABLE assessments (  id UUID PRIMARY KEY,  code VARCHAR(50) UNIQUE NOT NULL,  name VARCHAR(200) NOT NULL,  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',  created_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE assessment_versions (  id UUID PRIMARY KEY,  assessment_id UUID NOT NULL REFERENCES assessments(id),  version VARCHAR(30) NOT NULL,  scoring_version VARCHAR(30) NOT NULL,  template_version VARCHAR(30) NOT NULL,  locale VARCHAR(10) NOT NULL DEFAULT 'ko-KR',  fixed_order BOOLEAN NOT NULL DEFAULT true,  definition_json JSONB NOT NULL,  published_at TIMESTAMPTZ,  UNIQUE (assessment_id, version));CREATE TABLE factors (  id UUID PRIMARY KEY,  assessment_id UUID NOT NULL REFERENCES assessments(id),  code VARCHAR(10) NOT NULL,  name VARCHAR(100) NOT NULL,  max_score NUMERIC(6,2),  included_in_overall BOOLEAN NOT NULL DEFAULT true,  display_order SMALLINT NOT NULL,  UNIQUE (assessment_id, code));CREATE TABLE items (  id VARCHAR(20) PRIMARY KEY,  assessment_id UUID NOT NULL REFERENCES assessments(id),  factor_id UUID NOT NULL REFERENCES factors(id),  sensitivity VARCHAR(30) NOT NULL DEFAULT 'NORMAL',  active BOOLEAN NOT NULL DEFAULT true);CREATE TABLE item_versions (  id UUID PRIMARY KEY,  item_id VARCHAR(20) NOT NULL REFERENCES items(id),  assessment_version_id UUID NOT NULL REFERENCES assessment_versions(id),  item_version VARCHAR(30) NOT NULL,  display_id VARCHAR(10) NOT NULL,  display_order SMALLINT NOT NULL,  text TEXT NOT NULL,  timeframe_code VARCHAR(30) NOT NULL,  response_scale_code VARCHAR(40) NOT NULL,  reverse_scored BOOLEAN NOT NULL DEFAULT false,  alert_rule_codes JSONB NOT NULL DEFAULT '[]'::jsonb,  UNIQUE (assessment_version_id, display_order),  UNIQUE (assessment_version_id, item_id));CREATE TABLE assessment_sessions (  id UUID PRIMARY KEY,  subject_id UUID NOT NULL,  organization_id UUID,  assessment_version_id UUID NOT NULL REFERENCES assessment_versions(id),  status session_status NOT NULL DEFAULT 'CREATED',  started_at TIMESTAMPTZ,  completed_at TIMESTAMPTZ,  client_meta JSONB NOT NULL DEFAULT '{}'::jsonb,  created_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE responses (  id UUID PRIMARY KEY,  session_id UUID NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,  item_id VARCHAR(20) NOT NULL REFERENCES items(id),  raw_value SMALLINT,  scored_value SMALLINT,  missing_code VARCHAR(30),  latency_ms INTEGER,  answered_at TIMESTAMPTZ NOT NULL,  response_meta JSONB NOT NULL DEFAULT '{}'::jsonb,  UNIQUE (session_id, item_id),  CHECK (raw_value BETWEEN 0 AND 3 OR raw_value IS NULL),  CHECK (scored_value BETWEEN 0 AND 3 OR scored_value IS NULL));CREATE TABLE factor_scores (  id UUID PRIMARY KEY,  session_id UUID NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,  factor_code VARCHAR(10) NOT NULL,  answered_count SMALLINT NOT NULL,  raw_score NUMERIC(6,2),  risk_index NUMERIC(5,1),  band score_band,  score_status VARCHAR(20) NOT NULL,  rank_order SMALLINT,  UNIQUE (session_id, factor_code));CREATE TABLE assessment_results (  session_id UUID PRIMARY KEY REFERENCES assessment_sessions(id) ON DELETE CASCADE,  overall_raw NUMERIC(7,2),  overall_index NUMERIC(5,1),  overall_index_band score_band,  general_case_code VARCHAR(5),  suicide_level VARCHAR(2) NOT NULL DEFAULT 'S0',  environment_level VARCHAR(2) NOT NULL DEFAULT 'E0',  final_case_code VARCHAR(5),  acute_emergency BOOLEAN NOT NULL DEFAULT false,  result_json JSONB NOT NULL,  calculated_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE alert_events (  id UUID PRIMARY KEY,  session_id UUID NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,  rule_code VARCHAR(100) NOT NULL,  severity VARCHAR(20) NOT NULL,  source_item_id VARCHAR(20),  trigger_json JSONB NOT NULL,  action_code VARCHAR(100) NOT NULL,  ack_status ack_status NOT NULL DEFAULT 'OPEN',  acknowledged_by UUID,  acknowledged_at TIMESTAMPTZ,  resolved_at TIMESTAMPTZ,  created_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE safety_assessments (  id UUID PRIMARY KEY,  session_id UUID NOT NULL REFERENCES assessment_sessions(id),  assessor_id UUID NOT NULL,  current_ideation BOOLEAN,  current_intent BOOLEAN,  current_plan BOOLEAN,  means_access BOOLEAN,  attempt_within_72h BOOLEAN,  ongoing_severe_injury BOOLEAN,  protective_factors JSONB NOT NULL DEFAULT '[]'::jsonb,  clinical_judgment VARCHAR(20),  disposition_code VARCHAR(50),  notes_encrypted BYTEA,  assessed_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE reports (  id UUID PRIMARY KEY,  session_id UUID NOT NULL REFERENCES assessment_sessions(id),  audience_code VARCHAR(30) NOT NULL,  template_version VARCHAR(30) NOT NULL,  report_json JSONB NOT NULL,  storage_uri TEXT,  generated_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE TABLE audit_logs (  id BIGSERIAL PRIMARY KEY,  actor_id UUID,  action VARCHAR(80) NOT NULL,  resource_type VARCHAR(80) NOT NULL,  resource_id TEXT NOT NULL,  before_json JSONB,  after_json JSONB,  ip_hash VARCHAR(128),  created_at TIMESTAMPTZ NOT NULL DEFAULT now());CREATE INDEX idx_responses_session ON responses(session_id);CREATE INDEX idx_alert_open ON alert_events(session_id, ack_status);CREATE INDEX idx_sessions_org_status ON assessment_sessions(organization_id, status);CREATE INDEX idx_results_case ON assessment_results(final_case_code, calculated_at);
+[표끝]
+[표시작]
+운영 환경 추가실제 운영에서는 RLS(Row-Level Security), 암호화 키 관리, 파티셔닝, 백업·복구, 보존기간, 삭제요청 처리, 기관별 테넌트 격리를 별도 설계한다.
+[표끝]
+14. REST API 구조와 응답 예시
+14.1 주요 엔드포인트
+[표시작]
+Method | Endpoint | 설명
+POST | /v1/assessment-sessions | 검사 세션 생성
+GET | /v1/assessment-sessions/{id}/items | 고정 혼합순서 문항 조회
+PUT | /v1/assessment-sessions/{id}/responses/{item_id} | 단일 응답 저장 및 즉시 경보 평가
+POST | /v1/assessment-sessions/{id}/responses:batch | 오프라인/일괄 응답 동기화
+POST | /v1/assessment-sessions/{id}:complete | 검사 완료·채점·판정 실행
+GET | /v1/assessment-sessions/{id}/result | 구조화 채점결과 조회
+POST | /v1/assessment-sessions/{id}/reports | 대상별 보고서 생성
+GET | /v1/reports/{report_id} | 보고서 JSON/PDF 상태 조회
+GET | /v1/assessment-sessions/{id}/alerts | 경보 목록
+POST | /v1/alerts/{alert_id}:acknowledge | 담당자 경보 확인
+POST | /v1/assessment-sessions/{id}/safety-assessments | 추가 안전평가 저장
+POST | /v1/assessment-sessions/{id}/case-actions | 상담·연계·재검 조치 등록
+[표끝]
+14.2 세션 생성 요청
+POST /v1/assessment-sessions
+[표시작]
+{  "assessment_code": "OY_MSI",  "assessment_version": "1.0.0",  "subject_id": "b6e3f5d0-....",  "organization_id": "org_....",  "context": {    "age": 16,    "school_status": "OUT_OF_SCHOOL",    "respondent_type": "SELF"  },  "consents": {    "assessment": true,    "report_to_guardian": false,    "research_use": false  },  "client": {    "platform": "WEB",    "timezone": "Asia/Seoul"  }}
+[표끝]
+14.3 단일 응답 저장과 즉시 경보
+요청
+[표시작]
+{  "raw_value": 2,  "answered_at": "2026-07-25T13:24:33+09:00",  "latency_ms": 7300}
+[표끝]
+응답
+[표시작]
+{  "saved": true,  "item_id": "SAF04",  "scored_value": 2,  "alert_evaluation": {    "triggered": true,    "alert_id": "alt_01J...",    "safety_level": "S3",    "severity": "CRITICAL",    "next_ui_action": "OPEN_SAFETY_CHECK_SCREEN"  }}
+[표끝]
+14.4 완료 API 응답 원칙
+필수문항/결측 규칙을 검증하고 완료 가능 여부를 반환한다.
+채점, 요인분류, 안전·환경 수준, 사례코드를 하나의 트랜잭션 또는 멱등 작업으로 산출한다.
+동일 idempotency_key로 재요청하면 중복 결과와 중복 경보를 만들지 않는다.
+급성 응급 플래그가 있으면 report_generation_status와 무관하게 즉시 경보를 반환한다.
+보고서 생성은 비동기 작업이 가능하지만 구조화 점수와 안전코드는 즉시 반환한다.
+14.5 오류코드
+[표시작]
+HTTP | code | 의미
+400 | INVALID_RESPONSE_VALUE | 허용되지 않은 응답값
+409 | SESSION_VERSION_MISMATCH | 세션 버전과 요청 버전 불일치
+409 | SESSION_ALREADY_COMPLETED | 완료 세션 응답 수정 시도
+422 | INSUFFICIENT_RESPONSES | 채점에 필요한 응답 부족
+423 | SAFETY_ALERT_REQUIRES_ACK | 기관 정책상 경보 확인 전 다음 단계 제한
+403 | DISCLOSURE_NOT_ALLOWED | 대상별 정보공개 권한 없음
+500 | SCORING_ENGINE_ERROR | 채점 실패, 원응답 보존 및 재시도
+[표끝]
+15. 채점·보고서 생성 의사코드
+완료 처리
+[표시작]
+def complete_assessment(session_id, idempotency_key):    session = lock_session(session_id)    assert session.status in ['IN_PROGRESS', 'PAUSED']    definition = load_versioned_definition(session.assessment_version_id)    responses = load_responses(session_id)    validate_response_domain(responses, definition)    quality = evaluate_response_quality(responses)    # 1. 문항점수    scored = {}    for item in definition.items:        response = responses.get(item.item_id)        if response is missing_or_prefer_not:            scored[item.item_id] = None        elif item.reverse_scored:            scored[item.item_id] = 3 - response.raw_value        else:            scored[item.item_id] = response.raw_value    # 2. 요인점수    factor_scores = []    for factor in definition.general_factors:        values = [scored[x] for x in factor.item_ids if scored[x] is not None]        if len(values) == 6:            raw = sum(values); status = 'COMPLETE'        elif len(values) == 5:            raw = round(sum(values) * 6 / 5, 1); status = 'PARTIAL'        else:            raw = None; status = 'UNSCORABLE'        risk = None if raw is None else round(raw / 18 * 100, 1)        band = determine_band(raw) if raw is not None else None        factor_scores.append(build_factor_result(factor, raw, risk, band, status))    # 3. 안전 및 환경 경보    suicide_level = evaluate_safety_level(responses, quality)    environment_level = evaluate_environment_level(responses, session.context)    acute_emergency = evaluate_acute_emergency(latest_safety_assessment(session_id))    create_or_update_alert_events(session_id, responses, suicide_level, environment_level)    # 4. 일반/최종 사례코드    general_code = classify_general_profile(factor_scores)    final_code = classify_final_case(general_code, suicide_level, environment_level)    # 5. 전체지수    overall = calculate_overall(factor_scores)    # 6. 강점·솔루션·재검    strengths = extract_strengths(responses, quality, session.context)    ranked_factors = rank_factors(factor_scores, open_alerts(session_id))    solutions = recommend_solutions(ranked_factors, suicide_level, environment_level)    recheck = recommend_recheck(final_code, ranked_factors)    # 7. 원자적 저장    save_factor_scores(...)    save_assessment_result(...)    mark_session_completed(...)    return structured_result(...)
+[표끝]
+15.1 보고서 생성 의사코드
+보고서 생성
+[표시작]
+def generate_report(session_id, audience, actor):    result = load_result(session_id)    assert can_generate_report(actor, audience, result)    sections = []    if max_level(result.suicide_level, result.environment_level) >= 1:        sections.append(render_safety_notice(audience, result))    sections.append(render_overall_summary(audience, result))    top_factors = select_top_factors(result.factors, limit=3)    for factor in top_factors:        sections.append(render_factor_detail(audience, factor))    sections.append(render_strength(audience, result.strengths))    sections.append(render_solutions(audience, result.solutions))    sections.append(render_recheck(audience, result.recheck))    sections.append(render_disclaimer(audience))    sections = apply_disclosure_policy(sections, audience, actor, result.consents)    report = persist_versioned_report(sections, result.template_version)    audit('REPORT_GENERATED', actor, report)    return report
+[표끝]
+16. 권한·개인정보·감사로그
+16.1 역할별 기본권한
+[표시작]
+역할 | 점수 | 민감문항 | 안전평가 | 보고서
+YOUTH | 본인 요약 | 문항별 원응답 미표시 | 본인 안전안내 | 청소년용
+GUARDIAN | 요인 요약 | 기본 비공개 | 필요 범위·절차 후 공유 | 부모용
+TEACHER | 지원 필요 요약 | 비공개 | 행동지침만 | 교사용 요약
+COUNSELOR | 전체 | 업무상 필요 시 | 작성·열람 | 전문가용
+CASE_MANAGER | 전체/서비스 중심 | 필요 최소 | 조치관리 | 사례관리용
+ORG_ADMIN | 비식별 통계 | 비공개 | 경보 처리현황 | 기관 통계
+SYSTEM_ADMIN | 시스템 운영 | 평문 열람 금지 | 메타데이터만 | 없음
+[표끝]
+16.2 민감도 등급
+[표시작]
+등급 | 대상 | 보안
+NORMAL | 일반 점수·일반 결과문 | 일반 암호화·권한검사
+RESTRICTED | 우울·가족·외상 요인 세부 | 상담자 이상, 감사로그
+HIGHLY_RESTRICTED | SAF 응답, 학대·성착취, 안전평가 기록 | 필드 암호화, 최소권한, 모든 조회 감사
+[표끝]
+16.3 감사로그 필수 이벤트
+민감 문항 원응답 조회
+보호자용 보고서 생성 또는 공유
+안전경보 확인·해제·종결
+안전평가 기록 작성·수정
+검사결과 수정 또는 재채점
+데이터 내보내기·인쇄·다운로드
+동의 범위 변경
+문항·채점·템플릿 버전 배포
+[표시작]
+개인정보 분리subject_id와 직접식별자 매핑은 별도 서비스 또는 별도 스키마에서 관리하고, 검사 DB 백업만으로 이름·전화번호를 복원할 수 없도록 분리하는 것이 바람직하다.
+[표끝]
+17. 테스트 시나리오 및 검수 기준
+17.1 필수 단위테스트
+[표시작]
+ID | 입력 | 기대결과
+T01 | 모든 일반문항 0 | 모든 일반요인 0, GREEN, G0
+T02 | 요인 문항 합 5 | GREEN
+T03 | 요인 문항 합 6 | YELLOW
+T04 | 요인 문항 합 10 | YELLOW
+T05 | 요인 문항 합 11 | RED
+T06 | FUT04 raw=3 | scored=0
+T07 | FUT05 raw=0 | scored=3
+T08 | SAF03=1 | 최소 S1, C1
+T09 | SAF04=2 | S3, 경보 CRITICAL
+T10 | SAF06=1 | S3, 당일 즉시 전문평가
+T11 | SAF 문항 PREFER_NOT | 최소 S1
+T12 | FAM05=3 | E3, C3
+T13 | 전체지수 GREEN + DEP RED | R1 유지
+T14 | RED 2개 | R2
+T15 | YELLOW 3개 | Y2
+T16 | 요인 1문항 결측 | PARTIAL 환산
+T17 | 요인 2문항 결측 | UNSCORABLE
+T18 | 동일 idempotency_key 완료 재요청 | 중복 결과·경보 없음
+[표끝]
+17.2 통합테스트
+Q001~Q060이 정의된 고정순서로 노출되는지 확인
+안전문항 응답 직후 결과 완료 전에도 경보가 발생하는지 확인
+오프라인 응답 동기화 시 경보가 누락되지 않는지 확인
+세션 시작 후 검사 정의가 새 버전으로 배포되어도 기존 세션이 원래 버전을 유지하는지 확인
+보호자 계정으로 SAF 원응답 API를 직접 호출할 때 403이 반환되는지 확인
+보고서 문안과 점수·신호등이 정확히 일치하는지 확인
+경보 알림 실패 시 재시도와 상위 담당자 에스컬레이션이 작동하는지 확인
+검사 완료 트랜잭션 중 오류가 나도 원응답이 손실되지 않는지 확인
+17.3 검수 금지사항
+안전문항 응답거부를 0점으로 처리하지 않는다.
+전체 총점이 낮다는 이유로 S/E 경보를 제거하지 않는다.
+보호자용 보고서에 문항별 자살·학대 응답을 자동 삽입하지 않는다.
+표준화 전 백분위·T점수를 임의 생성하지 않는다.
+문항 문구 변경 후 같은 assessment_version을 재사용하지 않는다.
+경보를 담당자가 확인하지 않았는데 자동으로 RESOLVED 처리하지 않는다.
+18. 배포 체크리스트
+☐ 검사 정의 JSON과 DB item_versions의 Q001~Q060 순서 일치
+☐ 역채점 FUT04~FUT06 단위테스트 통과
+☐ 경계값 5/6, 10/11 테스트 통과
+☐ S1~S3, E1~E3 경보 시나리오 통과
+☐ 청소년·보호자·교사·상담자 권한별 API 필드 차단 확인
+☐ 109·1388·112·119 등 안내 문구 운영기관 검수
+☐ 경보 담당자 연락망과 미확인 에스컬레이션 설정
+☐ 표준화 전 임시 기준 고지문 노출
+☐ 보고서 템플릿 버전과 scoring_version 고정
+☐ 개인정보 보존기간·파기·다운로드 정책 설정
+☐ 백업 복구와 감사로그 위변조 방지 확인
+☐ 운영자 교육과 위기대응 모의훈련 완료
+부록 A. 코드값 사전
+A.1 시간기준 코드
+[표시작]
+코드 | 표시
+PAST_2_WEEKS | 최근 2주 동안
+PAST_12_MONTHS | 최근 12개월 동안
+CURRENT | 현재 이 순간
+LIFETIME | 평생 경험
+[표끝]
+A.2 조치 코드
+[표시작]
+코드 | 의미
+SELF_MANAGEMENT | 자기관리 콘텐츠
+RECHECK_90D | 1~3개월 재검
+RECHECK_28D | 4주 재검
+RECHECK_14D | 2주 재검
+SAME_DAY_INTERVIEW | 당일 면담
+SAFETY_PLAN | 안전계획 작성
+IMMEDIATE_SAFETY_ASSESSMENT | 즉시 전문 안전평가
+EMERGENCY_REFERRAL | 112·119·응급연계
+MENTAL_HEALTH_REFERRAL | 정신건강복지센터·의료기관
+YOUTH_CENTER_REFERRAL | 꿈드림·1388 연계
+PROTECTIVE_SERVICES_REVIEW | 보호·신고 절차 검토
+DIGITAL_EXPLOITATION_SUPPORT | 온라인 착취 지원
+[표끝]
+부록 B. 결과 템플릿 키 규칙
+각 요인마다 GREEN/YELLOW/RED × YOUTH/GUARDIAN/TEACHER_SUMMARY/PROFESSIONAL 템플릿을 구성한다. 안전요인은 S0~S3, 환경위험은 E0~E3 템플릿을 별도로 둔다.
+예시 키
+[표시작]
+result.YOUTH.DEP.GREEN.meaningresult.YOUTH.DEP.YELLOW.meaningresult.YOUTH.DEP.RED.meaningresult.GUARDIAN.DEP.RED.actionsresult.TEACHER_SUMMARY.DEP.RED.supportresult.PROFESSIONAL.DEP.RED.clinical_noteresult.YOUTH.SAF.S2.noticeresult.PROFESSIONAL.ENV.E3.protocol
+[표끝]
+B.1 필수 component
+[표시작]
+component | 용도
+headline | 짧은 결과 제목
+meaning | 결과 의미
+actions | 구체적 행동
+avoid | 피해야 할 반응
+referral | 기관·전문가 연계
+followup | 재검·추적
+strength | 강점
+safety_notice | 위기 안내
+clinical_note | 전문가 해석
+questions | 추가 면담 질문
+[표끝]
+부록 C. 버전관리 원칙
+문항 문구, 표시순서, 척도, 역채점 여부가 바뀌면 assessment_version을 올린다.
+절단점, 경보조건, 종합판정 수식이 바뀌면 scoring_version을 올린다.
+결과문 또는 솔루션 내용만 바뀌면 template_version을 올린다.
+기존 세션과 보고서는 당시 버전으로 재현 가능해야 한다.
+재채점 기능을 제공할 경우 original_result와 rescored_result를 모두 보존하고 변경사유를 감사로그에 기록한다.
+표준화 완료 시 norm_version을 발행하고 백분위·T점수 필드를 활성화한다.
+[표시작]
+최종 결론본 설계는 예비검사를 안전하고 재현 가능하게 구현하기 위한 기준이다. 제품 출시 전에는 심리측정 전문가, 청소년상담 전문가, 개인정보·법률 담당자, 개발자, 운영기관 담당자가 공동 검수하고 위기대응 모의훈련을 실시해야 한다.
+[표끝]
