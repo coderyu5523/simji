@@ -44,7 +44,7 @@ class ReportComposer
 
         return array_values(array_filter([
             $this->safetySection($engine, $audience),
-            $this->overallSection($engine, $audience),
+            $this->overallSection($engine, $audience, $this->hasSafetyAlert($engine)),
             $this->factorsSection($engine, $rules),
             $this->prioritySection($engine, $rules, $audience),
             $this->strengthSection($engine),
@@ -59,12 +59,12 @@ class ReportComposer
     //    환경위험 문안은 이 섹션 안에서 자살안전 문안 바로 다음에 놓인다.
     private function safetySection(array $engine, string $audience): ?array
     {
-        $safety = $engine['safety']['suicide_level'];
-        $environment = $engine['safety']['environment_level'];
-
-        if ($this->level($safety) < 1 && $this->level($environment) < 1) {
+        if (!$this->hasSafetyAlert($engine)) {
             return null;
         }
+
+        $safety = $engine['safety']['suicide_level'];
+        $environment = $engine['safety']['environment_level'];
 
         return [
             'type' => 'SAFETY_NOTICE',
@@ -75,8 +75,22 @@ class ReportComposer
         ];
     }
 
-    // 2. 종합
-    private function overallSection(array $engine, string $audience): array
+    /**
+     * 2. 종합
+     *
+     * `has_safety_alert` — 안전(S) 또는 환경(E) 경보가 걸려 있는가.
+     *
+     * 왜 필요한가: 전체 위험지수는 SAF 를 뺀 9요인 합/162 다(SAF 는 included_in_overall
+     * =false). 그래서 한 요인이 만점(18/18)이고 안전등급이 S2 여도 종합은 "초록"으로
+     * 나올 수 있다 — 007 §246 이 말한 "전체 지수가 특정 요인의 고위험을 상쇄할 수
+     * 있다" 는 그 상황이다. 007 §68 은 "안전경보가 최종판정보다 우선한다" 고 못박는다.
+     * 신호등 헤드라인 구조(설계 §5.1)는 그대로 두되, 화면이 이 플래그로 "이 점수에는
+     * 안전 항목이 빠져 있다" 는 한 줄을 덧붙여 상쇄 축만 크게 남지 않게 한다.
+     *
+     * 문구 자체는 audience 별 어투가 다르므로 뷰가 갖는다(YOUTH 는 반말).
+     * GUARDIAN 화면(Task 18)도 같은 보정을 해야 하며 이 플래그를 그대로 쓰면 된다.
+     */
+    private function overallSection(array $engine, string $audience, bool $hasSafetyAlert): array
     {
         $band = $engine['overall']['band'];
 
@@ -86,8 +100,16 @@ class ReportComposer
             'risk_index' => $engine['overall']['risk_index'],
             'score_status' => $engine['score_status'],
             'final_case_code' => $engine['profile']['final_case_code'],
+            'has_safety_alert' => $hasSafetyAlert,
             'text' => $this->text("result.{$audience}.OVERALL.{$band}.meaning"),
         ];
+    }
+
+    /** 안전(S) 또는 환경(E) 경보가 1등급 이상인가 */
+    private function hasSafetyAlert(array $engine): bool
+    {
+        return $this->level($engine['safety']['suicide_level']) >= 1
+            || $this->level($engine['safety']['environment_level']) >= 1;
     }
 
     // 3. 영역별 — SAF 제외 (included_in_overall 로 데이터에서 걸러낸다)

@@ -117,10 +117,32 @@ test('결과 화면이 렌더된다', function () {
 
 test('안전등급 S2 이상이면 결과 화면에 연락처가 최상단에 뜬다', function () {
     $attempt = completedAttempt(['SAF01' => 2], $this->user);
+    $html = $this->actingAs($this->user)
+        ->get(route('result.show', $attempt->id))
+        ->assertOk()
+        ->assertSee('먼저 읽어야 할 안내')              // 안전 패널
+        ->assertSee('자살예방 상담전화 109')            // 패널 전용 문구 (상시 블록은 '자살예방 상담 109')
+        ->getContent();
+
+    // 상시 도움기관 블록에도 109 가 있으므로, '최상단'은 위치로 확인한다.
+    expect(mb_strpos($html, '먼저 읽어야 할 안내'))
+        ->toBeLessThan(mb_strpos($html, '종합 마음상태'));
+    expect(mb_strpos($html, '먼저 읽어야 할 안내'))
+        ->toBeLessThan(mb_strpos($html, '도움받을 수 있는 곳'));
+});
+
+test('안전등급과 무관하게 위기 연락처 4종과 꿈드림이 상시 노출된다', function () {
+    // 설계 §5.1 #6 — 109 · 1388 · 112 · 119 + 꿈드림
+    $attempt = completedAttempt([], $this->user);   // S0 · E0
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
         ->assertOk()
-        ->assertSee('109');
+        ->assertSee('도움받을 수 있는 곳')
+        ->assertSee('tel:109', false)
+        ->assertSee('tel:1388', false)
+        ->assertSee('tel:112', false)
+        ->assertSee('tel:119', false)
+        ->assertSee('꿈드림');
 });
 
 // ── SAF 원점수 비노출 고정 ─────────────────────────────────────────────────
@@ -148,12 +170,97 @@ test('결과 화면 HTML 에 SAF 요인 이름·원점수 칸이 없다', functi
         ->assertDontSee('"SAF"', false);
 });
 
-test('S0·E0 이면 결과 화면에 자살예방 상담전화가 뜨지 않는다', function () {
+test('S0·E0 이면 결과 화면에 안전 패널이 뜨지 않는다', function () {
     $attempt = completedAttempt([], $this->user);
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
         ->assertOk()
-        ->assertDontSee('자살예방 상담전화');
+        ->assertDontSee('먼저 읽어야 할 안내')          // 안전 패널 제목
+        ->assertDontSee('주변 환경 안전')                // 환경위험 블록
+        ->assertDontSee('자살예방 상담전화 109');        // 패널 전용 통화 버튼 문구
+});
+
+// ── 종합 신호등이 안전 경보를 상쇄해 보이지 않게 하는 보정 (007 §68 / §246) ──
+
+test('안전·환경 경보가 있으면 종합 블록에 안전 우선 안내가 붙는다', function () {
+    // DEP 만점(빨강) + S2 인데 전체 위험지수는 낮아 종합은 초록으로 나온다.
+    $attempt = completedAttempt([
+        'DEP01' => 3, 'DEP02' => 3, 'DEP03' => 3, 'DEP04' => 3, 'DEP05' => 3, 'DEP06' => 3,
+        'SAF01' => 2,
+    ], $this->user);
+
+    $overall = collect(app(ReportComposer::class)->compose($attempt->result, 'YOUTH'))
+        ->firstWhere('type', 'OVERALL');
+    expect($overall['band'])->toBe('GREEN');           // 상쇄가 실제로 일어나는 조건인지 확인
+    expect($overall['has_safety_alert'])->toBeTrue();
+
+    $this->actingAs($this->user)
+        ->get(route('result.show', $attempt->id))
+        ->assertOk()
+        ->assertSee('이 종합 신호에는 안전에 관한 문항이 들어가 있지 않아. 위에 있는 안전 안내를 먼저 읽어 줘.');
+});
+
+test('환경 경보만 있어도 종합 블록에 안전 우선 안내가 붙는다', function () {
+    $attempt = completedAttempt(['TRM06' => 1], $this->user);   // E1, S0
+    $overall = collect(app(ReportComposer::class)->compose($attempt->result, 'YOUTH'))
+        ->firstWhere('type', 'OVERALL');
+    expect($overall['has_safety_alert'])->toBeTrue();
+});
+
+test('S0·E0 이면 종합 블록에 안전 우선 안내가 붙지 않는다', function () {
+    $attempt = completedAttempt([], $this->user);
+
+    foreach (['YOUTH', 'GUARDIAN'] as $audience) {
+        $overall = collect(app(ReportComposer::class)->compose($attempt->result, $audience))
+            ->firstWhere('type', 'OVERALL');
+        expect($overall['has_safety_alert'])->toBeFalse();
+    }
+
+    $this->actingAs($this->user)
+        ->get(route('result.show', $attempt->id))
+        ->assertOk()
+        ->assertDontSee('위에 있는 안전 안내를 먼저 읽어 줘');
+});
+
+test('보호자용 조립물도 같은 안전 우선 플래그를 받는다', function () {
+    // GUARDIAN 화면은 Task 18 이지만 ReportComposer 는 공용이므로 플래그가 있어야 한다.
+    $attempt = completedAttempt(['SAF01' => 2]);
+    $overall = collect(app(ReportComposer::class)->compose($attempt->result, 'GUARDIAN'))
+        ->firstWhere('type', 'OVERALL');
+    expect($overall['has_safety_alert'])->toBeTrue();
+});
+
+// ── SAF 비노출이 컨트롤러 분기 하나에만 의존하지 않는다 ─────────────────────
+
+test('레거시 컬럼 area_scores·area_signals 에 SAF 가 없다', function () {
+    $attempt = completedAttempt(['SAF01' => 3, 'SAF02' => 3, 'SAF03' => 3, 'SAF04' => 2, 'SAF05' => 2, 'SAF06' => 2]);
+    $result = $attempt->result;
+
+    expect($result->engine_result['factors']['SAF']['raw'])->not->toBeNull();  // 엔진은 계산한다
+    expect(array_keys($result->area_scores))->not->toContain('SAF');
+    expect(array_keys($result->area_signals))->not->toContain('SAF');
+    expect(array_keys($result->area_scores))->toHaveCount(9);
+    expect($result->area_scores['DEP'])->not->toBeNull();                      // 나머지 9요인은 그대로
+});
+
+test('공용 결과 화면으로 렌더해도 SAF 점수가 새지 않는다', function () {
+    // ResultController 의 oy_msi 분기를 우회한 상황(Task 18 공유 화면·명부·PDF 등이
+    // 분기를 재현하지 않는 경우)을 가정한다. 방어는 데이터 쪽에 있어야 한다.
+    $attempt = completedAttempt(['SAF01' => 3, 'SAF02' => 3, 'SAF03' => 3, 'SAF04' => 2, 'SAF05' => 2, 'SAF06' => 2]);
+    $attempt->load('test', 'result');
+
+    $html = view('result.show', [
+        'attempt' => $attempt, 'test' => $attempt->test, 'result' => $attempt->result,
+    ])->render();
+
+    // 공용 뷰가 SAF 점수를 찍을 수 있는 통로는 둘뿐이다.
+    expect($html)->not->toContain('>SAF<');        // 영역별 결과 목록의 요인 이름 칸
+    expect($html)->not->toContain('"SAF"');        // Chart.js 라벨 배열(array_keys(area_scores))
+    expect($html)->toContain('>DEP<');             // 나머지 9요인은 정상 렌더 (빈 화면이 아님)
+
+    // 남는 'SAF' 문자열은 솔루션 코드 SOL_SAF_PLAN 하나뿐이다 — 점수가 아니라
+    // "안전계획을 권한다"는 질적 정보이고, 안전 안내와 같은 층위다.
+    expect(substr_count($html, 'SAF'))->toBe(substr_count($html, 'SOL_SAF_PLAN'));
 });
 
 // ── 문안 누락은 조용히 넘어가지 않는다 ──────────────────────────────────────

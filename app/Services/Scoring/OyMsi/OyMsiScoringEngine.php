@@ -71,14 +71,30 @@ class OyMsiScoringEngine implements ScoringEngine
 
         $scoreStatus = $this->overallStatus($factors, $rules);
 
+        // 레거시 컬럼(area_scores/area_signals)에는 SAF 를 넣지 않는다.
+        //
+        // 이 두 컬럼은 공용 결과 화면(resources/views/result/show.blade.php)이
+        // 키를 통째로 순회하며 "{요인} {점수}점" 으로 찍고 Chart.js 데이터로도 HTML
+        // 소스에 박아 넣는다. SAF 를 담아 두면 OY_MSI 결과가 그 화면에 한 번이라도
+        // 닿는 순간 자해·자살 문항 점수가 그대로 노출된다 — 방어가 ResultController
+        // 의 분기 한 줄에만 걸리게 된다. 설계 §127 은 "기존 컬럼을 계속 채운다"만
+        // 요구하고 SAF 포함을 요구하지 않으므로, 데이터 자체에서 빼서 화면 종류와
+        // 무관하게 막는다. engine_result.factors 는 SAF 를 그대로 담는다(내부 산출물,
+        // 0-diff 패리티 대상).
+        $reportable = array_filter(
+            $factors,
+            fn ($code) => $rules['factors'][$code]['included_in_overall'] ?? false,
+            ARRAY_FILTER_USE_KEY
+        );
+
         return TestResult::updateOrCreate(
             ['attempt_id' => $attempt->id],
             [
-                // 기존 컬럼 (결과 화면 호환)
-                'area_scores' => array_map(fn ($f) => $f['raw'], $factors),
+                // 기존 컬럼 (결과 화면 호환) — SAF 제외
+                'area_scores' => array_map(fn ($f) => $f['raw'], $reportable),
                 'area_signals' => array_map(
                     fn ($f) => $f['band'] === null ? null : strtolower($f['band']),
-                    $factors
+                    $reportable
                 ),
                 'overall_signal' => strtolower($overall['band']),
                 'overall_level' => $this->overallLevelText($overall['band']),

@@ -53,6 +53,13 @@
           <p class="text-sm text-navy/50">종합 마음상태</p>
           <p class="mt-1 text-3xl font-extrabold {{ $bandText[$s['band']] }}">{{ $bandLabel[$s['band']] }}</p>
           <p class="text-sm text-navy/50">전체 위험지수 {{ $s['risk_index'] }}점</p>
+          @if($s['has_safety_alert'])
+            {{-- 007 §68 "안전경보가 최종판정보다 우선한다" / §246 "전체 지수는 특정 요인의
+                 고위험을 상쇄할 수 있다". 종합 신호등만 크게 남지 않도록 한 줄 덧붙인다. --}}
+            <p class="mt-3 rounded-2xl bg-signal-red/10 px-4 py-3 text-sm font-semibold text-signal-red">
+              이 종합 신호에는 안전에 관한 문항이 들어가 있지 않아. 위에 있는 안전 안내를 먼저 읽어 줘.
+            </p>
+          @endif
           @if($s['score_status'] !== 'COMPLETE')
             <p class="mt-2 text-xs text-signal-yellow">응답하지 않은 문항이 있어 일부 영역은 참고용으로만 봐야 해.</p>
           @endif
@@ -141,14 +148,28 @@
 
     @endforeach
 
-    {{-- 안전등급과 관계없이 언제나 보이는 도움 연락처 --}}
+    {{-- 도움받을 수 있는 곳 — 설계 §5.1 #6 (109 · 1388 · 112 · 119 + 꿈드림).
+         안전등급과 관계없이 언제나 보인다. 출처: 005 18페이지 "도움받을 수 있는 곳". --}}
     <section class="rounded-3xl bg-deepgreen/5 ring-1 ring-deepgreen/10 p-6">
-      <h2 class="font-bold text-deepgreen">힘들 때 연락할 곳</h2>
-      <p class="mt-1 text-sm text-navy/70">언제든 무료로 이야기할 수 있어. 24시간 열려 있어.</p>
-      <div class="mt-3 grid grid-cols-2 gap-2">
+      <h2 class="font-bold text-deepgreen">도움받을 수 있는 곳</h2>
+      <p class="mt-1 text-sm text-navy/70">혼자 참지 않아도 돼. 아래는 언제든 연락할 수 있는 곳이야.</p>
+
+      <div class="mt-4 grid grid-cols-2 gap-2">
+        <a href="tel:109" class="rounded-xl bg-signal-red text-white py-3 text-center font-bold">자살예방 상담 109</a>
         <a href="tel:1388" class="rounded-xl bg-teal text-white py-3 text-center font-bold">청소년상담 1388</a>
-        <a href="sms:%231388" class="rounded-xl bg-navy/10 py-3 text-center font-semibold">문자상담 #1388</a>
+        <a href="tel:112" class="rounded-xl bg-navy/10 py-3 text-center font-semibold">경찰 112</a>
+        <a href="tel:119" class="rounded-xl bg-navy/10 py-3 text-center font-semibold">구급·응급 119</a>
       </div>
+
+      <ul class="mt-4 space-y-1 text-sm text-navy/70">
+        <li><b class="text-navy">자살예방 상담 109</b> · 24시간 · 죽고 싶거나 자해하고 싶은 생각이 들 때</li>
+        <li><b class="text-navy">청소년상담 1388</b> · 24시간 365일 · 전화·문자·온라인. 가출, 학교중단, 가족갈등도 상담할 수 있어</li>
+        <li><b class="text-navy">경찰 112 · 구급 119</b> · 지금 나나 다른 사람이 다칠 것 같을 때 바로</li>
+        <li>
+          <b class="text-navy">학교 밖 청소년 지원센터 꿈드림</b> · 상담, 검정고시, 학습·진로·취업 지원,
+          건강검진, 자립지원을 받을 수 있어. 1388에 물어보면 가까운 곳을 연결해 줘
+        </li>
+      </ul>
     </section>
 
     <div class="grid grid-cols-2 gap-2 print:hidden">
