@@ -161,6 +161,56 @@ test('금지 표현 검사기는 실제로 위반을 잡아낸다', function () 
     ]))->toBe([]);
 });
 
+test('청소년용 문안 65건은 수신자가 맞으므로 손대지 않는다', function () {
+    // 2026-07-28 보호자 문안 제거 라운드(Task 18b)의 경계 고정.
+    // 003 Ⅶ·006 의 수신자 혼합 문제는 result.GUARDIAN.* 만의 문제다.
+    // result.YOUTH.* 는 005(청소년용)에서 왔고 읽는 사람이 청소년 본인이므로
+    // 같은 이유로 문장을 빼서는 안 된다. 여기서 전체를 통째로 고정한다.
+    //
+    // ★ 이 테스트가 깨졌다면: result.YOUTH.* 문안이 바뀐 것이다. 의도한 변경이라면
+    //   아래 해시를 새 값으로 갱신하되, 왜 바꿨는지 커밋 메시지에 남겨야 한다.
+    //   새 해시는 아래 계산식을 그대로 돌려 얻는다.
+    $rows = InterpretationTemplate::where('template_key', 'like', 'result.YOUTH.%')
+        ->orderBy('template_key')->pluck('text', 'template_key')->all();
+
+    expect(count($rows))->toBe(65);   // 요인 54 + SAF 4 + ENV 4 + OVERALL 3
+    expect(hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE)))
+        ->toBe('f2991e713599e8d0b7a454437e3464fd4bcee4566847ceb39c44698ec7047d86');
+});
+
+test('보호자 문안에 남은 문장은 비어 있지 않다 — 제거로 빈 값이 생기지 않았다', function () {
+    // 제거는 "줄만 뺀다". 키가 사라지거나(ReportComposer::text() 예외 계약)
+    // 값이 빈 문자열이 되면(조용한 폴백 금지) 안 된다.
+    $blank = InterpretationTemplate::where('template_key', 'like', 'result.GUARDIAN.%')
+        ->get()
+        ->filter(fn ($t) => trim((string) $t->text) === '')
+        ->pluck('template_key')
+        ->all();
+
+    expect($blank)->toBe([]);
+});
+
+test('보호자 문안에 담당자용 위험 문장이 남아 있지 않다', function () {
+    // 기준 (a) 보호자·가족을 평가/경계 대상으로 지목 · (b) 보호자 모르게 진행되는 절차 예고.
+    // 화면 렌더 부재는 ShareTest 가 실제 HTTP 로 따로 단언한다(여기는 시드 원본 단언).
+    $offenders = [];
+    foreach (InterpretationTemplate::where('template_key', 'like', 'result.GUARDIAN.%')->get() as $t) {
+        foreach ([
+            '가해 가능성이 있는 보호자',
+            '제3의 전문기관을 우선',
+            '결과공유를 제한',
+            '보호자 통보가 위험을 높일 가능성',
+            '가족이 안전한 보호자원인지',
+            '신고·보호절차를 시행',
+            '증거를 보존하고',
+        ] as $phrase) {
+            if (str_contains($t->text, $phrase)) $offenders[] = "{$t->template_key}: {$phrase}";
+        }
+    }
+
+    expect($offenders)->toBe([], "담당자용 문장 잔존:\n" . implode("\n", $offenders));
+});
+
 test('청소년용 문안은 반말체다', function () {
     // 005 문안은 "~해", "~야", "~어" 로 끝난다. 존댓말(습니다/세요)이 섞이면 톤이 깨진다.
     $violations = [];

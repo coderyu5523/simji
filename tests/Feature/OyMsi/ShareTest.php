@@ -417,8 +417,10 @@ test('환경위험 보호자 문안은 안전 섹션 안에서만 렌더된다',
 
 // ── Critical 1 — 보호자 화면에 상담자용 보호절차 지침이 없다 ────────────────
 
-test('보호자 화면에 담당자용 보호절차 지침이 나오지 않는다', function () {
-    // E2·E3 — 교체 전 문안에 있던 담당자 프로토콜 문장들. 수신자가 보호자가 아니다.
+test('환경위험(ENV) 문안에서 담당자용 보호절차 지침이 빠졌다', function () {
+    // ★ 범위 주의: 이 테스트의 픽스처는 TRM06 만 올리므로 TRM 요인 자체는 GREEN 이고,
+    //   TRM.RED 문안은 애초에 렌더되지 않는다. 즉 여기서 검증되는 것은 ENV(E2·E3) 문안뿐이다.
+    //   TRM/FAM 의 RED 문안은 아래 '보호자 화면에 …(TRM·FAM 이 실제로 RED 일 때)' 가 맡는다.
     foreach ([2, 3] as $raw) {
         $attempt = completedAttempt(['TRM06' => $raw], $this->user);
         $html = guardianHtml($this, $attempt, $this->user);
@@ -428,12 +430,84 @@ test('보호자 화면에 담당자용 보호절차 지침이 나오지 않는�
             '보호자 통보가 위험을 높일 가능성',
             '증거를 보존하고',
             '신고·보호절차',
+            // ↓ ENV 문안에는 없어야 한다. 단 TRM.RED.actions 에는 이 문장이 남아 있다
+            //   (006 8페이지 원문, 수신자가 보호자로 성립해 2026-07-28 제거 대상이 아니었다).
+            //   그래서 이 단언은 "ENV 축에 없다"는 뜻이지 전역 부재가 아니다.
             '가해 가능성이 있는 사람과 청소년을 분리',
             '비공개 면담',
         ] as $staffOnly) {
             expect($html)->not->toContain($staffOnly);
         }
     }
+});
+
+// ── Task 18b — TRM·FAM 이 실제로 RED 로 렌더될 때의 보호자 화면 ──────────────
+
+/**
+ * TRM·FAM 을 둘 다 RED(원점수 12/18)로 만든다. severity_weight RED=200 이므로
+ * 상위3에 반드시 들어가고, 그 결과 result.GUARDIAN.{TRM,FAM}.RED.{meaning,actions,avoid}
+ * 가 실제로 화면에 찍힌다. SAF·TRM06·FAM05 는 0 이라 S0·E0 다(안전 패널 문안과 섞이지 않는다).
+ */
+function trmFamRedAttempt(User $user): TestAttempt
+{
+    return completedAttempt([
+        'TRM01' => 3, 'TRM02' => 3, 'TRM03' => 3, 'TRM04' => 3,
+        'FAM01' => 3, 'FAM02' => 3, 'FAM03' => 3, 'FAM04' => 3,
+    ], $user);
+}
+
+test('TRM·FAM RED 프로필에서 해당 문안이 실제로 렌더된다 (부재 단언의 전제)', function () {
+    // ★ 이 테스트가 없으면 아래 부재 단언이 공허해진다.
+    //   "문장이 없다"는 "그 문안 자체가 렌더되지 않았다"로도 참이 되기 때문이다.
+    $attempt = trmFamRedAttempt($this->user);
+
+    $engine = $attempt->result->engine_result;
+    expect($engine['factors']['TRM']['band'])->toBe('RED');
+    expect($engine['factors']['FAM']['band'])->toBe('RED');
+    expect($engine['safety']['suicide_level'])->toBe('S0');
+    expect($engine['safety']['environment_level'])->toBe('E0');
+    expect(collect($engine['priority'])->pluck('factor')->all())->toContain('TRM', 'FAM');
+
+    $html = guardianHtml($this, $attempt, $this->user);
+
+    // TRM.RED 세 칸이 모두 화면에 있다
+    expect($html)->toContain('심각한 불안과 안전감 저하를 경험할 수 있습니다');   // meaning
+    expect($html)->toContain('현재 실제 위험이 있는지 먼저 확인합니다');           // actions 첫 줄
+    expect($html)->toContain('청소년의 진술을 비난하거나 의심하지 않습니다');      // avoid (제거 후 남은 줄)
+
+    // FAM.RED 세 칸이 모두 화면에 있다
+    expect($html)->toContain('두려움이나 위험의 원인일 가능성을 확인해야 합니다'); // meaning
+    expect($html)->toContain('폭력과 위협이 있다면 즉시 중단합니다');              // actions 첫 줄
+    expect($html)->toContain('체벌이나 모욕을 훈육으로 정당화하지 않습니다');      // avoid
+});
+
+test('TRM·FAM 이 RED 여도 보호자 화면에 담당자용 위험 문장이 나오지 않는다', function () {
+    // 위 테스트로 해당 문안이 실제 렌더되는 것이 확인된 조건에서의 부재 단언이다.
+    $html = guardianHtml($this, trmFamRedAttempt($this->user), $this->user);
+
+    foreach ([
+        // (a) 보호자·가족을 평가/경계 대상으로 지목
+        '가해 가능성이 있는 보호자',
+        '가족이 안전한 보호자원인지',
+        // (b) 보호자 모르게 진행되는 보호·신고·증거 절차 예고
+        '제3의 전문기관을 우선',
+        '결과공유를 제한',
+        '보호자 통보가 위험을 높일 가능성',
+        '신고·보호절차를 시행',
+    ] as $staffOnly) {
+        expect($html)->not->toContain($staffOnly);
+    }
+});
+
+test('청소년용 TRM·FAM RED 문안은 그대로다 — 수신자가 맞는 쪽은 손대지 않았다', function () {
+    $attempt = trmFamRedAttempt($this->user);
+
+    $this->actingAs($this->user)
+        ->get(route('result.show', $attempt->id))
+        ->assertOk()
+        ->assertSee('혼자 해결하거나 가해 가능성이 있는 사람과 직접 맞서지 않기')   // YOUTH.TRM.RED.actions
+        ->assertSee('보호자에게 알리는 것이 위험하다면 상담자에게 먼저 말하기')      // YOUTH.TRM.RED.actions
+        ->assertSee('보호자에게 결과를 알려도 안전한지 상담자에게 말하기');          // YOUTH.FAM.RED.actions
 });
 
 test('S0+E3 에서 안전 패널이 안심 문구만 남지 않는다', function () {
