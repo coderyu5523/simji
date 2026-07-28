@@ -31,6 +31,7 @@ class TestSeeder extends Seeder
             'result_type' => 'signal',
             'scoring_engine' => 'oy_msi',
             'assessment_version' => '1.0.1',
+            'consent_required' => true,
             'description' => '최근 마음상태와 생활기능을 확인하는 선별검사입니다. 정신질환을 진단하는 검사가 아닙니다.',
             'status' => 'draft', // 1단계는 비공개
             'thumbnail' => null,

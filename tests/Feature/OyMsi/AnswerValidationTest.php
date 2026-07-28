@@ -22,11 +22,22 @@ function submitPayload(Test $test, array $overrides = [], $default = 0): array
     return ['answers' => $answers];
 }
 
+// OY_MSI 는 Task 12 부터 consent_required=true 라 submit 전에 동의 기록이 필요하다.
+// 이 파일의 테스트들은 답변 검증 로직만 확인하는 것이 목적이므로, ConsentGate 를 통해
+// 최소한의 동의를 남겨 그 게이트를 통과시킨다 (게이트 자체는 ConsentGateTest 에서 검증).
+function giveConsent(TestAttempt $attempt): void
+{
+    app(\App\Services\OyMsi\ConsentGate::class)->record(
+        $attempt, \App\Services\OyMsi\ConsentGate::SENSITIVE, 'youth', $attempt->user_id
+    );
+}
+
 test('4점 척도에서 0점 응답이 통과한다 (기존 min:1 버그)', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(),
     ]);
+    giveConsent($attempt);
 
     $this->actingAs($this->user)
         ->post(route('assessment.submit', ['OY_MSI', $attempt->id]), submitPayload($this->test, [], 0))
@@ -42,6 +53,7 @@ test('4점 척도에서 4 이상은 거부한다', function () {
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(),
     ]);
+    giveConsent($attempt);
 
     $this->actingAs($this->user)
         ->post(route('assessment.submit', ['OY_MSI', $attempt->id]), submitPayload($this->test, ['DEP01' => 4]))
@@ -53,6 +65,7 @@ test('PREFER_NOT 은 value=null · missing_code 로 저장된다', function () {
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(),
     ]);
+    giveConsent($attempt);
 
     $this->actingAs($this->user)
         ->post(route('assessment.submit', ['OY_MSI', $attempt->id]),

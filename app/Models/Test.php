@@ -8,6 +8,7 @@ class Test extends Model
         'areas' => 'array', 'requires_guardian_consent' => 'boolean',
         'min_age' => 'integer', 'max_age' => 'integer',
         'guardian_consent_below_age' => 'integer',
+        'consent_required' => 'boolean',
     ];
     public function items() { return $this->hasMany(TestItem::class)->orderBy('no'); }
     public function scoringRule() { return $this->hasOne(ScoringRule::class); }
