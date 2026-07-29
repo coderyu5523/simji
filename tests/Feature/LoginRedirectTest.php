@@ -50,6 +50,23 @@ test('auth 미들웨어에 막혀 로그인한 경우 원래 가려던 곳으로
     loginAs()->assertRedirect('/profile');
 });
 
+test('상단 메뉴의 로그인 링크는 지금 보던 페이지를 next 로 달고 간다', function () {
+    $this->get('/support')
+        ->assertOk()
+        ->assertSee('/login?next=%2Fsupport', escape: false);
+});
+
+test('로그인·회원가입 화면에서는 로그인 링크에 next 를 달지 않는다', function () {
+    // 로그인 화면 자신을 next 로 넣으면 로그인 후 다시 로그인 화면으로 간다.
+    $this->get('/login')
+        ->assertOk()
+        ->assertDontSee('next=%2Flogin', escape: false);
+
+    $this->get('/register')
+        ->assertOk()
+        ->assertDontSee('next=%2Fregister', escape: false);
+});
+
 test('검사 상세의 비로그인 버튼에 next 가 붙어 있다', function () {
     (new Database\Seeders\OyMsi\TestSeeder())->run();
     (new Database\Seeders\OyMsi\ScoringRuleSeeder())->run();
