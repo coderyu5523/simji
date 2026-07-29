@@ -42,6 +42,9 @@ class MyTestController extends Controller
             'ownedCount' => $ownedCount,
             // 보호자 동의 확인 버튼 노출 판정 — 컨트롤러 인가와 같은 규칙을 쓴다.
             'guardianRules' => app(\App\Services\OyMsi\GuardianConfirmation::class),
+            // 안전·환경 경보 판정 (003 Ⅴ-3). 종합 신호등에는 안전이 빠져 있어 따로 드러낸다.
+            'safetyAlert' => $safety = app(\App\Services\OyMsi\SafetyAlert::class),
+            'alertSummary' => $safety->summarize($issued->map(fn ($v) => $v->attempt?->result)),
         ]);
     }
 

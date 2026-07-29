@@ -32,6 +32,28 @@
         <a href="{{ route('catalog.index') }}" class="rounded-xl bg-deepgreen text-cream px-6 py-3 font-bold hover:brightness-110 transition whitespace-nowrap">심리검사로 이동</a>
       </div>
 
+      {{-- 안전·환경 경보 요약 (003 Ⅴ-3) — 종합 신호등에는 안전이 빠져 있어 따로 알린다 --}}
+      @if($alertSummary['total'] > 0)
+        <div class="rounded-3xl bg-signal-red/5 p-6 ring-1 ring-signal-red/25">
+          <p class="font-extrabold text-signal-red">⚠ 안전 확인이 필요한 응시 {{ $alertSummary['total'] }}건</p>
+          <p class="mt-1.5 text-sm text-navy/70 leading-relaxed">
+            @if($alertSummary['urgent'] > 0)
+              <b class="text-signal-red">{{ $alertSummary['urgent'] }}건은 즉시</b> 훈련된 상담자의 안전평가가 필요합니다.
+            @endif
+            @if($alertSummary['sameday'] > 0)
+              {{ $alertSummary['sameday'] }}건은 <b>가능한 한 당일</b> 직접 확인하고 24~72시간 안에 후속 확인이 필요합니다.
+            @endif
+            @if($alertSummary['environment'] > 0)
+              환경 위험이 확인된 응시가 {{ $alertSummary['environment'] }}건 있습니다.
+            @endif
+          </p>
+          <p class="mt-2 text-xs text-navy/50">
+            자살예방 상담전화 <a href="tel:109" class="font-semibold text-teal">109</a> ·
+            청소년상담 <a href="tel:1388" class="font-semibold text-teal">1388</a> (24시간)
+          </p>
+        </div>
+      @endif
+
       {{-- 발급 명부 --}}
       <div>
         <h2 class="font-bold text-deepgreen mb-4">발급한 검사권 <span class="text-sm text-navy/40 font-normal">({{ $issued->count() }})</span></h2>
@@ -55,7 +77,25 @@
                   </div>
                   <div class="flex items-center gap-2">
                     @if($done && $v->attempt->result)
-                      <x-signal-badge :signal="$v->attempt->result->overall_signal"/>
+                      @php $r = $v->attempt->result; $tier = $safetyAlert->safetyTier($r); @endphp
+                      <x-signal-badge :signal="$r->overall_signal"/>
+
+                      {{-- 안전등급은 종합 신호등과 별개다 — SAF 는 종합 점수에서 제외된다(003 Ⅷ) --}}
+                      @if($tier)
+                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap
+                          {{ $tier === \App\Services\OyMsi\SafetyAlert::URGENT
+                              ? 'bg-signal-red text-white'
+                              : 'bg-signal-yellow text-deepgreen' }}">
+                          안전 확인 — {{ $tier === \App\Services\OyMsi\SafetyAlert::URGENT ? '즉시' : '당일' }}
+                        </span>
+                      @endif
+
+                      @if($safetyAlert->hasEnvironmentAlert($r))
+                        <span class="inline-flex items-center rounded-full bg-orange-100 text-orange-700 px-3 py-1 text-xs font-bold whitespace-nowrap">
+                          환경 위험 확인
+                        </span>
+                      @endif
+
                       <a href="{{ route('result.show', $v->attempt->id) }}" class="text-sm font-semibold text-teal hover:text-deepgreen transition">결과 보기 →</a>
                     @endif
                   </div>
