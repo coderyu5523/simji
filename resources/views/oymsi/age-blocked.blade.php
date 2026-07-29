@@ -7,8 +7,6 @@
           이 검사는 만 {{ $test->min_age }}~{{ $test->max_age }}세 청소년을 위한 검사입니다.
           다른 검사를 찾아보실 수 있습니다.
         </p>
-        <a href="{{ route('catalog.index') }}"
-           class="mt-6 inline-block rounded-xl bg-deepgreen text-cream px-6 py-3 font-bold">다른 검사 보기</a>
 
       @elseif($reason === \App\Services\OyMsi\AgeGate::GUARDIAN_PERSONAL)
         <h1 class="text-2xl font-extrabold text-deepgreen">기관을 통해 응시할 수 있습니다</h1>
@@ -34,6 +32,17 @@
           <p>자살예방 상담 <a href="tel:109" class="font-bold text-teal">109</a></p>
         </div>
       @endif
+
+      {{-- 차단 유형과 무관하게 되돌아갈 길을 준다. 잘못 입력했을 때 주소를 직접 치게 하지 않는다.
+           세션에 나이를 남기지 않았으므로 재입력해도 게이트는 처음부터 다시 판정한다. --}}
+      <div class="mt-6 flex flex-wrap gap-2">
+        <a href="{{ $retryUrl }}"
+           class="inline-block rounded-xl bg-deepgreen text-cream px-6 py-3 font-bold">나이 다시 입력하기</a>
+        @if($reason === \App\Services\OyMsi\AgeGate::OUT_OF_RANGE)
+          <a href="{{ route('catalog.index') }}"
+             class="inline-block rounded-xl bg-white ring-1 ring-deepgreen/25 text-deepgreen px-6 py-3 font-bold">다른 검사 보기</a>
+        @endif
+      </div>
     </div>
   </div>
 </x-layouts.app>

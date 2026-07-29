@@ -38,6 +38,9 @@ class AgeGateController extends Controller
 
             return response()->view('oymsi.age-blocked', [
                 'test' => $test, 'reason' => $blocked, 'age' => $age,
+                // 잘못 입력했을 때 주소를 직접 치지 않고 되돌아올 수 있게 한다.
+                // 세션에 나이를 남기지 않았으므로 재입력해도 게이트는 그대로 다시 판정한다.
+                'retryUrl' => route('oymsi.age.form', $code),
             ]);
         }
 
@@ -69,6 +72,8 @@ class AgeGateController extends Controller
 
             return response()->view('oymsi.age-blocked', [
                 'test' => $test, 'reason' => $blocked, 'age' => $age,
+                // 링크 응시자는 개인 경로가 아니라 자기 링크의 연령 입력으로 돌아가야 한다.
+                'retryUrl' => route('link.age.form', $token),
             ]);
         }
 
