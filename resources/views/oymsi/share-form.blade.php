@@ -12,10 +12,10 @@
     <div class="max-w-md mx-auto px-4 py-12">
 
       @if($needsContactFirst)
-        <h1 class="text-2xl font-extrabold text-deepgreen">지금은 먼저 이야기할 사람이 필요해 보여</h1>
+        <h1 class="text-2xl font-extrabold text-deepgreen">지금은 먼저 이야기할 사람이 필요해 보입니다</h1>
         <p class="mt-3 text-sm text-navy/70">
-          결과를 보호자와 나누는 것보다, 지금 상담자와 이야기하는 게 먼저야.
-          누구에게 알릴지는 이야기하면서 함께 정해도 돼.
+          결과를 보호자와 나누는 것보다, 지금 상담자와 이야기하는 것이 먼저입니다.
+          누구에게 알릴지는 이야기하면서 함께 정해도 됩니다.
         </p>
         <div class="mt-6 grid gap-2">
           <a href="tel:109" class="rounded-xl bg-signal-red text-white py-4 text-center font-bold">109 자살예방 상담</a>
@@ -24,30 +24,30 @@
 
         <form method="POST" action="{{ route('oymsi.share.create', $attempt->id) }}" class="mt-8">
           @csrf
-          <button class="text-sm text-navy/45 underline">그래도 보호자와 공유할래</button>
+          <button class="text-sm text-navy/45 underline">그래도 보호자와 공유하기</button>
         </form>
         <a href="{{ route('result.show', $attempt->id) }}"
            class="mt-3 block text-sm text-navy/45 underline">결과로 돌아가기</a>
       @else
-        <h1 class="text-2xl font-extrabold text-deepgreen">보호자와 공유할까?</h1>
+        <h1 class="text-2xl font-extrabold text-deepgreen">보호자와 공유할까요?</h1>
         <p class="mt-3 text-sm text-navy/70">
-          공유하면 보호자가 결과 요약과 도와줄 방법을 볼 수 있어.
-          네가 어떻게 답했는지 문항별 내용은 보이지 않아. 언제든 공유를 취소할 수 있어.
+          공유하면 보호자가 결과 요약과 도와줄 방법을 볼 수 있습니다.
+          어떻게 답했는지 문항별 내용은 보이지 않습니다. 언제든 공유를 취소할 수 있습니다.
         </p>
         <form method="POST" action="{{ route('oymsi.share.create', $attempt->id) }}" class="mt-8">
           @csrf
           <button class="w-full rounded-xl bg-deepgreen text-cream py-3.5 font-bold">공유 링크 만들기</button>
         </form>
         <a href="{{ route('result.show', $attempt->id) }}"
-           class="mt-4 block text-center text-sm text-navy/50 underline">지금은 안 할래</a>
+           class="mt-4 block text-center text-sm text-navy/50 underline">지금은 하지 않기</a>
       @endif
 
       @if($existing)
         {{-- 이미 살아 있는 링크가 있으면 새로 만들지 않고 그것을 다시 보여준다. --}}
         <div class="mt-10 rounded-2xl bg-white p-5 ring-1 ring-black/5">
-          <p class="text-sm font-semibold text-navy">이미 만들어 둔 공유 링크가 있어</p>
+          <p class="text-sm font-semibold text-navy">이미 만들어 둔 공유 링크가 있습니다</p>
           <p class="mt-1 text-xs text-navy/50">
-            {{ $existing->expires_at?->format('Y년 n월 j일') }}까지 열려 있어.
+            {{ $existing->expires_at?->format('Y년 n월 j일') }}까지 열려 있습니다.
           </p>
           <form method="POST" action="{{ route('oymsi.share.revoke', $attempt->id) }}" class="mt-3">
             @csrf

@@ -20,7 +20,7 @@
             <input id="nickname" type="text" name="nickname" value="{{ old('nickname') }}" required maxlength="50"
                    class="w-full rounded-xl border border-black/10 px-4 py-3 focus:border-teal focus:ring-teal"
                    placeholder="예: 민수">
-            <p class="text-xs text-navy/40 mt-1">결과지에 이 이름이 나와. 실명이 아니어도 괜찮아.</p>
+            <p class="text-xs text-navy/40 mt-1">결과지에 이 이름이 표시됩니다. 실명이 아니어도 괜찮습니다.</p>
             @error('nickname')<p class="text-xs text-signal-red mt-1">{{ $message }}</p>@enderror
           </div>
           <div>
@@ -42,7 +42,7 @@
           @if($test->consent_required)
             {{-- 링크 수신자용 동의 확인. 이 체크가 없으면 attempt 를 만들지 않는다(LinkController::start). --}}
             <div class="rounded-2xl bg-cream/70 p-4 text-sm text-navy/80 space-y-2 ring-1 ring-black/5">
-              <p>이 검사는 <b class="text-deepgreen">민감정보(건강에 관한 정보)</b>를 수집·처리해. 응답은 결과를 만들고 보관하는 데만 써.</p>
+              <p>이 검사는 <b class="text-deepgreen">민감정보(건강에 관한 정보)</b>를 수집·처리합니다. 응답은 결과를 만들고 보관하는 데만 사용합니다.</p>
               <p class="text-navy/60">수집 항목: 검사 응답·결과 · 보관 기간: 법정 보관기간까지.</p>
             </div>
             <label class="flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/5 cursor-pointer">

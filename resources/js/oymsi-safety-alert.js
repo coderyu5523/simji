@@ -87,11 +87,11 @@
         if (!state.show) return;
 
         doc.getElementById('safety-title').textContent =
-          state.level >= 3 ? '지금 바로 도움이 필요해 보여' : '지금 많이 힘든 것 같아';
+          state.level >= 3 ? '지금 바로 도움이 필요해 보입니다' : '지금 많이 힘드신 것 같습니다';
         doc.getElementById('safety-body').textContent =
           state.level >= 3
-            ? '혼자 있지 말고 지금 전화해 줘. 위급하면 112나 119에 연락해도 돼. 검사는 이어서 해도 괜찮아.'
-            : '혼자 견디지 말고 오늘 안에 이야기하자. 검사는 이어서 해도 괜찮아.';
+            ? '혼자 있지 말고 지금 전화해 주세요. 위급하면 112나 119에 연락해도 됩니다. 검사는 이어서 하셔도 괜찮습니다.'
+            : '혼자 견디지 말고 오늘 안에 이야기해 주세요. 검사는 이어서 하셔도 괜찮습니다.';
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');

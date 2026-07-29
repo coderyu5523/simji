@@ -177,7 +177,7 @@ test('안전·환경 경보가 있으면 종합 블록에 안전 우선 안내�
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
         ->assertOk()
-        ->assertSee('이 종합 신호에는 안전에 관한 문항이 들어가 있지 않아. 위에 있는 안전 안내를 먼저 읽어 줘.');
+        ->assertSee('이 종합 신호에는 안전에 관한 문항이 들어가 있지 않습니다. 위에 있는 안전 안내를 먼저 읽어 주세요.');
 });
 
 test('환경 경보만 있어도 종합 블록에 안전 우선 안내가 붙는다', function () {
@@ -199,7 +199,7 @@ test('S0·E0 이면 종합 블록에 안전 우선 안내가 붙지 않는다', 
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
         ->assertOk()
-        ->assertDontSee('위에 있는 안전 안내를 먼저 읽어 줘');
+        ->assertDontSee('위에 있는 안전 안내를 먼저 읽어 주세요');
 });
 
 test('보호자용 조립물도 같은 안전 우선 플래그를 받는다', function () {

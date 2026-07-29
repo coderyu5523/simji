@@ -1,9 +1,9 @@
 <x-layouts.app :title="'연령 확인 · '.$test->title_easy">
   <div class="bg-cream min-h-[70vh]">
     <div class="max-w-md mx-auto px-4 py-12">
-      <h1 class="text-2xl font-extrabold text-deepgreen">먼저 나이를 확인할게</h1>
+      <h1 class="text-2xl font-extrabold text-deepgreen">먼저 나이를 확인합니다</h1>
       <p class="text-sm text-navy/60 mt-2">
-        검사마다 참여할 수 있는 나이가 정해져 있어. 생년월일은 나이를 계산하는 데만 쓰고 저장하지 않아.
+        검사마다 참여할 수 있는 나이가 정해져 있습니다. 생년월일은 나이를 계산하는 데만 쓰고 저장하지 않습니다.
       </p>
 
       <form method="POST" action="{{ $action }}" class="mt-8">

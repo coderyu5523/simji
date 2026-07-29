@@ -2,8 +2,8 @@
   <div class="bg-cream min-h-[70vh]">
     <div class="max-w-md mx-auto px-4 py-12">
       <p class="text-sm text-teal font-semibold">2 동의 완료 · <span class="text-navy/40">3 기본정보 · 4 검사</span></p>
-      <h1 class="text-2xl font-extrabold text-deepgreen mt-2">뭐라고 부르면 좋을까?</h1>
-      <p class="text-sm text-navy/60 mt-2">결과지에 이 이름이 나와. 실명이 아니어도 괜찮아.</p>
+      <h1 class="text-2xl font-extrabold text-deepgreen mt-2">어떻게 부르면 좋을까요?</h1>
+      <p class="text-sm text-navy/60 mt-2">결과지에 이 이름이 표시됩니다. 실명이 아니어도 괜찮습니다.</p>
 
       <form method="POST" action="{{ route('oymsi.profile.submit', $test->code) }}" class="mt-8 space-y-6">
         @csrf

@@ -35,9 +35,9 @@
             <legend class="font-semibold text-navy flex gap-2"><span class="text-teal">{{ $item->no }}.</span> {{ $item->text }}</legend>
 
             @if($item->timeframe_code === 'PAST_12_MONTHS')
-              <p class="text-xs font-semibold text-amber-700 mb-2 mt-2">최근 12개월 동안을 기준으로 답해 줘</p>
+              <p class="text-xs font-semibold text-amber-700 mb-2 mt-2">최근 12개월 동안을 기준으로 답해 주세요</p>
             @elseif($item->timeframe_code === 'PAST_2_WEEKS')
-              <p class="text-xs text-navy/45 mb-2 mt-2">최근 2주 동안을 기준으로 답해 줘</p>
+              <p class="text-xs text-navy/45 mb-2 mt-2">최근 2주 동안을 기준으로 답해 주세요</p>
             @endif
 
             <div class="gap-1.5 mt-5 {{ count($options) === 4 ? 'grid grid-cols-4' : 'flex justify-between' }}">

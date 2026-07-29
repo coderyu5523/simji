@@ -267,7 +267,7 @@ test('미채점이면 이유가 보이는 안내 화면이 나온다 (404 유지
     $this->actingAs($this->user)
         ->get(route('oymsi.share.form', $attempt->id))
         ->assertNotFound()                          // 차단은 그대로
-        ->assertSee('아직 결과가 준비되지 않았어')   // 이유가 보인다
+        ->assertSee('아직 결과가 준비되지 않았습니다')   // 이유가 보인다
         ->assertSee('1388');
 });
 
@@ -285,7 +285,7 @@ test('열람 대기면 이유가 보이는 안내 화면이 나온다 (403 유�
     $this->actingAs($this->user)
         ->get(route('oymsi.share.form', $attempt->id))
         ->assertForbidden()                          // 차단은 그대로
-        ->assertSee('지금은 결과를 공유할 수 없어')   // 이유가 보인다
+        ->assertSee('지금은 결과를 공유할 수 없습니다')   // 이유가 보인다
         ->assertSee('1388');
 });
 
@@ -297,7 +297,7 @@ test('S0·E0 이면 공유 화면은 연결 안내가 아니라 공유 버튼을
     $this->actingAs($this->user)
         ->get(route('oymsi.share.form', $attempt->id))
         ->assertOk()
-        ->assertSee('보호자와 공유할까?')
+        ->assertSee('보호자와 공유할까요?')
         ->assertSee('공유 링크 만들기')
         ->assertDontSee('먼저 이야기할 사람');
 });
@@ -323,7 +323,7 @@ test('S2 이상이어도 공유는 2차 선택으로 남아 있다', function ()
         ->get(route('oymsi.share.form', $attempt->id))->getContent();
 
     expect(mb_strpos($html, '먼저 이야기할 사람'))
-        ->toBeLessThan(mb_strpos($html, '그래도 보호자와 공유할래'));
+        ->toBeLessThan(mb_strpos($html, '그래도 보호자와 공유하기'));
 
     $this->actingAs($this->user)
         ->post(route('oymsi.share.create', $attempt->id))
@@ -559,16 +559,16 @@ test('FAM 이 RED 면 공유 링크를 만들 수 없고 이유가 보인다', f
     $this->actingAs($this->user)
         ->get(route('oymsi.share.form', $attempt->id))
         ->assertStatus(403)
-        ->assertSee('이 결과는 상담자와 먼저 이야기해 보자')
+        ->assertSee('이 결과는 상담자와 먼저 이야기해 보세요')
         ->assertSee('1388')
         ->assertDontSee('공유 링크 만들기')
-        ->assertDontSee('그래도 보호자와 공유할래');
+        ->assertDontSee('그래도 보호자와 공유하기');
 
     // POST 를 직접 쏴도 막힌다(화면만 가린 것이 아니다)
     $this->actingAs($this->user)
         ->post(route('oymsi.share.create', $attempt->id))
         ->assertStatus(403)
-        ->assertSee('이 결과는 상담자와 먼저 이야기해 보자');
+        ->assertSee('이 결과는 상담자와 먼저 이야기해 보세요');
 
     expect(ReportShare::where('attempt_id', $attempt->id)->count())->toBe(0);
 });

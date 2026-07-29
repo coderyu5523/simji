@@ -102,7 +102,7 @@ test('attachSafetyAlert: SAF01=2(레벨2) → 모달이 뜬다 (hidden 제거, f
 
   assert.equal(dom.modal.classes.has('hidden'), false);
   assert.equal(dom.modal.classes.has('flex'), true);
-  assert.equal(dom.title.textContent, '지금 많이 힘든 것 같아');
+  assert.equal(dom.title.textContent, '지금 많이 힘드신 것 같습니다');
   assert.ok(dom.body.textContent.length > 0);
 });
 
@@ -138,7 +138,7 @@ test('attachSafetyAlert: 등급이 올라가면 다시 뜬다 (재표시) — �
   dom.inputs.SAF04.dispatch(1); // 레벨3(S3) 로 상승 → 다시 표시
   assert.equal(dom.modal.classes.has('hidden'), false, '등급 상승이면 다시 표시해야 한다');
   assert.equal(dom.modal.classes.has('flex'), true);
-  assert.equal(dom.title.textContent, '지금 바로 도움이 필요해 보여');
+  assert.equal(dom.title.textContent, '지금 바로 도움이 필요해 보입니다');
 });
 
 test('attachSafetyAlert: 계속하기 버튼을 누르면 모달을 숨긴다', () => {
