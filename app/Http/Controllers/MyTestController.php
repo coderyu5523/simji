@@ -22,6 +22,7 @@ class MyTestController extends Controller
         if (auth()->check()) {
             // 발급 명부: 내가 링크로 발급한 검사권 + 응시 결과
             $issued = Voucher::with(['test', 'attempt.result'])
+                ->withCount('attempts') // 보호자 동의 확인 버튼 판정의 N+1 방지
                 ->where('user_id', auth()->id())
                 ->whereNotNull('access_token')
                 ->latest('assigned_at')
@@ -39,6 +40,8 @@ class MyTestController extends Controller
             'attempts' => $query->get(),
             'issued' => $issued,
             'ownedCount' => $ownedCount,
+            // 보호자 동의 확인 버튼 노출 판정 — 컨트롤러 인가와 같은 규칙을 쓴다.
+            'guardianRules' => app(\App\Services\OyMsi\GuardianConfirmation::class),
         ]);
     }
 

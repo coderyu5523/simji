@@ -13,6 +13,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\LinkController;
 use App\Http\Controllers\OyMsi\AgeGateController;
+use App\Http\Controllers\OyMsi\GuardianConfirmController;
 use App\Http\Controllers\OyMsi\ProfileStepController;
 use App\Http\Controllers\OyMsi\ShareController;
 use Illuminate\Support\Facades\Route;
@@ -97,6 +98,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/my/issue', [MyTestController::class, 'issue'])->name('my.issue');
     Route::post('/my/vouchers/{voucher}/visibility', [MyTestController::class, 'toggleVisibility'])->name('my.voucher.visibility');
+    Route::post('/my/vouchers/{voucher}/guardian-consent', [GuardianConfirmController::class, 'confirm'])->name('my.voucher.guardian.confirm');
+    Route::post('/my/vouchers/{voucher}/guardian-consent/release', [GuardianConfirmController::class, 'release'])->name('my.voucher.guardian.release');
     Route::get('/checkout/{product}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });

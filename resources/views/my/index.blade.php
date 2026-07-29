@@ -77,7 +77,47 @@
                       </button>
                     </form>
                   @endif
+
+                  {{-- 법정대리인 동의 확인 배지 (확인된 것만) --}}
+                  @if($v->guardian_consent_confirmed_at)
+                    <span class="rounded-lg bg-signal-green/15 text-signal-green px-3 py-2 text-xs font-bold whitespace-nowrap">
+                      ✓ 보호자 동의 확인됨 · {{ $v->guardian_consent_confirmed_at->format('n.j') }}@if($guardianRules->hasStarted($v)) · 응시 시작됨 @endif
+                    </span>
+                  @endif
                 </div>
+
+                {{-- 만 14세 미만 법정대리인 동의 확인 (연령확인이 필요한 검사 · 응시 전에만) --}}
+                @if($guardianRules->canConfirm($v, auth()->user()))
+                  @if($v->guardian_consent_confirmed_at)
+                    <form method="POST" action="{{ route('my.voucher.guardian.release', $v->id) }}" class="mt-2">
+                      @csrf
+                      <button class="text-xs font-semibold text-navy/40 hover:text-navy/70 underline transition">확인 해제</button>
+                    </form>
+                  @else
+                    <details class="mt-3 rounded-xl bg-cream/60 ring-1 ring-black/5">
+                      <summary class="cursor-pointer select-none px-4 py-2.5 text-xs font-bold text-navy/70">
+                        만 14세 미만 · 보호자 동의 확인
+                      </summary>
+                      <form method="POST" action="{{ route('my.voucher.guardian.confirm', $v->id) }}" class="px-4 pb-4">
+                        @csrf
+                        <p class="text-xs text-navy/60 leading-relaxed">
+                          이 검사는 자살·자해 관련 문항을 포함합니다.<br>
+                          만 14세 미만 응시자는 법정대리인 동의가 있어야 응시할 수 있습니다.
+                        </p>
+                        <label class="mt-3 flex items-start gap-2 text-xs text-navy/70">
+                          <input type="checkbox" name="confirm" value="1" class="mt-0.5 rounded border-black/20 text-deepgreen focus:ring-deepgreen">
+                          <span>법정대리인에게 동의를 받았으며, 동의서를 기관이 보관하고 있음을 확인합니다.</span>
+                        </label>
+                        @error('confirm')
+                          <p class="mt-2 text-xs font-semibold text-signal-red">{{ $message }}</p>
+                        @enderror
+                        <button class="mt-3 rounded-lg bg-deepgreen text-cream px-4 py-2 text-xs font-bold hover:brightness-110 transition">
+                          확인 기록
+                        </button>
+                      </form>
+                    </details>
+                  @endif
+                @endif
               </div>
             @endforeach
           </div>
