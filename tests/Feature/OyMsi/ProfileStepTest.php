@@ -28,7 +28,7 @@ test('기본정보를 저장하면 attempt 에 닉네임·성별·나이가 남�
 
     $this->actingAs($this->user)
         ->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
 
     $attempt->refresh();
     expect($attempt->nickname)->toBe('민수');
@@ -97,7 +97,7 @@ test('제출 완료된 attempt 로 프로필을 재전송해도 식별 라벨이
 
     $this->actingAs($this->user)
         ->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
 
     $this->actingAs($this->user)
         ->post(route('assessment.start', 'OY_MSI'))

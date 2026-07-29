@@ -235,7 +235,7 @@ test('(①) 나이 null 로 굳은 created attempt 도 나이 확정 후 다시 
 
     // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
     $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
 
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();
 });
@@ -318,7 +318,7 @@ test('개인 경로 만 16세는 연령 → 동의 → 시작 → 검사까지 �
 
     // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
     $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.start', 'OY_MSI'));
+        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
 
     $this->post(route('assessment.start', 'OY_MSI'))
         ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));

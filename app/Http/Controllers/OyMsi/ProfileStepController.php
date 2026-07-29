@@ -34,7 +34,11 @@ class ProfileStepController extends Controller
             'age_at_test' => $attempt->age_at_test ?? $request->session()->get('oymsi_age:'.$code),
         ]);
 
-        return redirect()->route('assessment.start', $code);
+        // assessment.start 는 POST 전용이다(검사를 in_progress 로 바꾸고 검사권을 소비하는
+        // 부작용이 있어 GET 으로 열면 안 된다). 리다이렉트는 브라우저가 GET 으로 따라가므로
+        // 여기서 start 로 보내면 405 가 난다 — GET 으로 열리는 안내 화면으로 보내고,
+        // 그 화면의 "검사 시작" 폼이 POST 로 start 를 호출한다.
+        return redirect()->route('assessment.intro', $code);
     }
 
     // 형제 코드(AssessmentController::start():117-122)와 동일하게 소유권·검사종류 일치를 확인한다.
