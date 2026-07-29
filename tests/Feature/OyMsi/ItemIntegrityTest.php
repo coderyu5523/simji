@@ -75,5 +75,7 @@ test('검사 메타가 spec 과 일치한다', function () {
     expect($this->test->min_age)->toBe(13);
     expect($this->test->max_age)->toBe(18);
     expect($this->test->guardian_consent_below_age)->toBe(14);
-    expect($this->test->status)->not->toBe('active'); // 1단계는 비공개
+    // 2026-07-29 사용자 결정: 실서비스 오픈으로 방향 확정 → 시더가 active 로 만든다.
+    // (그 전까지는 1단계 비공개 방침에 따라 draft 였다)
+    expect($this->test->status)->toBe('active');
 });

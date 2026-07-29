@@ -6,7 +6,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    branch: feat/partial-implementation
+    branch: master
     dockerfilePath: ./Dockerfile
     envVars:
       - key: APP_NAME
