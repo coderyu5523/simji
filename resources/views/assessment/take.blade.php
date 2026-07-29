@@ -84,6 +84,18 @@
   </script>
 
   @if($test->scoring_engine === 'oy_msi')
+  {{-- 레벨 2(죽음사고·자해사고가 여러 번) — 검사를 멈추지 않고 화면 아래 고정으로 알린다.
+       한 번 뜨면 검사가 끝날 때까지 남는다. 멈추는 모달은 레벨 3 에만 쓴다. --}}
+  <div id="safety-banner" class="hidden fixed bottom-0 inset-x-0 z-40 border-t border-signal-yellow/40 bg-signal-yellow/10 backdrop-blur px-4 py-3">
+    <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-navy/80">혼자 견디지 말고 오늘 안에 이야기해 주세요.</p>
+      <div class="flex gap-2">
+        <a href="tel:109" class="rounded-lg bg-signal-red text-white px-4 py-2 text-xs font-bold whitespace-nowrap">109 자살예방</a>
+        <a href="tel:1388" class="rounded-lg bg-teal text-white px-4 py-2 text-xs font-bold whitespace-nowrap">1388 청소년상담</a>
+      </div>
+    </div>
+  </div>
+
   <div id="safety-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
     <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
       <h2 id="safety-title" class="text-lg font-extrabold text-deepgreen"></h2>

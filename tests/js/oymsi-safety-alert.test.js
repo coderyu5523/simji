@@ -53,11 +53,13 @@ function makeEl(id) {
 /** @param {string[]} itemCodes SAF 문항 코드 목록 (문항당 input 하나씩 만든다) */
 function makeSafetyDom(itemCodes) {
   const modal = makeEl('safety-modal');
+  const banner = makeEl('safety-banner');
   const continueBtn = makeEl('safety-continue');
   const title = makeEl('safety-title');
   const body = makeEl('safety-body');
   const byId = {
     'safety-modal': modal,
+    'safety-banner': banner,
     'safety-continue': continueBtn,
     'safety-title': title,
     'safety-body': body,
@@ -84,7 +86,7 @@ function makeSafetyDom(itemCodes) {
     querySelectorAll: () => ({ forEach: (fn) => inputList.forEach(fn) }),
   };
 
-  return { doc, modal, continueBtn, title, body, inputs };
+  return { doc, modal, banner, continueBtn, title, body, inputs };
 }
 
 test('attachSafetyAlert: 안전 모달이 없는 화면(기존 5점 검사)에서는 아무 것도 하지 않는다', () => {
@@ -92,64 +94,86 @@ test('attachSafetyAlert: 안전 모달이 없는 화면(기존 5점 검사)에�
   assert.doesNotThrow(() => attachSafetyAlert(doc));
 });
 
-test('attachSafetyAlert: SAF01=2(레벨2) → 모달이 뜬다 (hidden 제거, flex 추가, 문구 주입)', () => {
+// 2026-07-29 방침 변경: 검사 흐름을 멈추는 모달은 레벨 3(자살 계획·준비·시도)에만 쓴다.
+// 레벨 2 는 화면을 가리지 않는 상단 고정 배너로 알린다.
+test('attachSafetyAlert: SAF01=2(레벨2) → 모달이 아니라 배너가 뜬다', () => {
   const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
   attachSafetyAlert(dom.doc);
 
-  assert.equal(dom.modal.classes.has('hidden'), true, '처음엔 숨겨져 있어야 한다');
+  assert.equal(dom.modal.classes.has('hidden'), true, '처음엔 둘 다 숨겨져 있어야 한다');
+  assert.equal(dom.banner.classes.has('hidden'), true);
 
   dom.inputs.SAF01.dispatch(2);
 
-  assert.equal(dom.modal.classes.has('hidden'), false);
-  assert.equal(dom.modal.classes.has('flex'), true);
-  assert.equal(dom.title.textContent, '지금 많이 힘드신 것 같습니다');
-  assert.ok(dom.body.textContent.length > 0);
+  assert.equal(dom.banner.classes.has('hidden'), false, '레벨2 는 배너로 알린다');
+  assert.equal(dom.modal.classes.has('hidden'), true, '레벨2 에 모달로 검사를 멈추지 않는다');
 });
 
-test('attachSafetyAlert: 같은 등급이 반복되면 다시 뜨지 않는다 (억제)', () => {
-  const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
+test('attachSafetyAlert: SAF04=1(레벨3) → 모달로 멈춘다', () => {
+  const dom = makeSafetyDom(['SAF01', 'SAF04']);
   attachSafetyAlert(dom.doc);
 
-  dom.inputs.SAF01.dispatch(2); // 레벨2 도달 → 표시
+  dom.inputs.SAF04.dispatch(1);
+
+  assert.equal(dom.modal.classes.has('hidden'), false);
+  assert.equal(dom.modal.classes.has('flex'), true);
+  assert.equal(dom.title.textContent, '지금 바로 도움이 필요해 보입니다');
+  assert.ok(dom.body.textContent.length > 0);
+  assert.equal(dom.banner.classes.has('hidden'), false, '배너도 함께 남는다');
+});
+
+test('attachSafetyAlert: 배너는 한 번 뜨면 계속 남는다 (닫히지 않는다)', () => {
+  const dom = makeSafetyDom(['SAF01', 'SAF02']);
+  attachSafetyAlert(dom.doc);
+
+  dom.inputs.SAF01.dispatch(2);
+  assert.equal(dom.banner.classes.has('hidden'), false);
+
+  // 나중에 답을 0 으로 바꿔도 배너는 유지한다 — 이미 드러난 신호를 화면에서 지우지 않는다.
+  dom.inputs.SAF01.dispatch(0);
+  assert.equal(dom.banner.classes.has('hidden'), false);
+});
+
+test('attachSafetyAlert: 레벨3 모달은 같은 등급 반복이면 다시 뜨지 않는다 (억제)', () => {
+  const dom = makeSafetyDom(['SAF04', 'SAF06']);
+  attachSafetyAlert(dom.doc);
+
+  dom.inputs.SAF04.dispatch(1); // 레벨3 도달 → 모달
   assert.equal(dom.modal.classes.has('hidden'), false);
 
-  // 사용자가 계속하기를 눌러 닫았다고 가정
   dom.continueBtn.dispatch('click');
   assert.equal(dom.modal.classes.has('hidden'), true);
-  assert.equal(dom.modal.classes.has('flex'), false);
 
-  // SAF02=2 를 답해도 여전히 레벨 2(억제 대상) → 다시 뜨면 안 된다
-  dom.inputs.SAF02.dispatch(2);
+  dom.inputs.SAF06.dispatch(1); // 여전히 레벨3 → 다시 뜨면 안 된다
   assert.equal(dom.modal.classes.has('hidden'), true, '같은 등급 반복이면 다시 열리면 안 된다');
 });
 
-test('attachSafetyAlert: 등급이 올라가면 다시 뜬다 (재표시) — 원본 문항단위 억제 버그 회귀 방지', () => {
+test('attachSafetyAlert: 레벨2(배너) → 레벨3 으로 오르면 그때 모달이 뜬다', () => {
   const dom = makeSafetyDom(['SAF01', 'SAF02', 'SAF03', 'SAF04']);
   attachSafetyAlert(dom.doc);
 
-  dom.inputs.SAF01.dispatch(2); // 레벨2 → 표시
-  assert.equal(dom.modal.classes.has('hidden'), false);
-  dom.continueBtn.dispatch('click');
+  dom.inputs.SAF01.dispatch(2); // 레벨2 → 배너만
+  assert.equal(dom.banner.classes.has('hidden'), false);
   assert.equal(dom.modal.classes.has('hidden'), true);
 
-  dom.inputs.SAF02.dispatch(1); // 여전히 레벨2 → 억제
+  dom.inputs.SAF02.dispatch(1); // 여전히 레벨2 → 변화 없음
   assert.equal(dom.modal.classes.has('hidden'), true);
 
-  dom.inputs.SAF04.dispatch(1); // 레벨3(S3) 로 상승 → 다시 표시
-  assert.equal(dom.modal.classes.has('hidden'), false, '등급 상승이면 다시 표시해야 한다');
-  assert.equal(dom.modal.classes.has('flex'), true);
+  dom.inputs.SAF04.dispatch(1); // 레벨3 상승 → 모달
+  assert.equal(dom.modal.classes.has('hidden'), false, '등급 상승이면 모달로 멈춘다');
   assert.equal(dom.title.textContent, '지금 바로 도움이 필요해 보입니다');
 });
 
 test('attachSafetyAlert: 계속하기 버튼을 누르면 모달을 숨긴다', () => {
-  const dom = makeSafetyDom(['SAF01']);
+  const dom = makeSafetyDom(['SAF04']);
   attachSafetyAlert(dom.doc);
-  dom.inputs.SAF01.dispatch(2);
+  dom.inputs.SAF04.dispatch(1);
   assert.equal(dom.modal.classes.has('hidden'), false);
 
   dom.continueBtn.dispatch('click');
   assert.equal(dom.modal.classes.has('hidden'), true);
   assert.equal(dom.modal.classes.has('flex'), false);
+  assert.equal(dom.banner.classes.has('hidden'), false, '모달을 닫아도 배너는 남는다');
 });
 
 // ── computeLevel: SafetyEvaluatorTest.php(tests/Feature/OyMsi/SafetyEvaluatorTest.php) 와
@@ -197,63 +221,60 @@ test('높은 등급이 낮은 등급보다 우선한다 (SAF03=3 과 SAF01=1 동
   assert.equal(computeLevel(saf({ SAF03: 3, SAF01: 1 })), 3);
 });
 
-// ── nextAlertState: 안내 모달 억제/재표시 양방향 고정 ─────────────────────────
+// ── nextAlertState: 배너/모달 분리 + 억제·재표시 양방향 고정 ──────────────────
 
-test('같은 등급이 반복돼도 모달은 1회만 뜬다 (억제)', () => {
-  // SAF01=2 → 레벨 2 도달, 처음이라 표시
+test('레벨 2 는 배너만 켜고 모달은 켜지 않는다', () => {
   let state = nextAlertState(saf({ SAF01: 2 }), 0);
   assert.equal(state.level, 2);
-  assert.equal(state.show, true);
+  assert.equal(state.showBanner, true);
+  assert.equal(state.showModal, false, '레벨2 에 검사를 멈추지 않는다');
   assert.equal(state.shownLevel, 2);
 
-  // 이후 문항들에서도 계속 레벨 2인 상태가 반복된다고 가정 (예: SAF02 도 2로 답함 → 여전히 레벨 2)
+  // 같은 레벨 2 가 반복돼도 상태는 그대로 (배너는 이미 켜져 있다)
   state = nextAlertState(saf({ SAF01: 2, SAF02: 2 }), state.shownLevel);
-  assert.equal(state.level, 2);
-  assert.equal(state.show, false, '같은 등급이 반복되면 다시 보여주면 안 된다');
+  assert.equal(state.showModal, false);
+  assert.equal(state.showBanner, true);
   assert.equal(state.shownLevel, 2);
-
-  // 원본 버그 재현 시나리오: 등급 2에 도달한 뒤 안전과 무관한 문항들에 계속 응답해도
-  // (안전문항 자체는 변화 없음) 재표시되지 않아야 한다.
-  state = nextAlertState(saf({ SAF01: 2, SAF02: 2, SAF03: 0 }), state.shownLevel);
-  assert.equal(state.show, false);
 });
 
-test('등급이 올라가면 모달이 다시 뜬다 (재표시)', () => {
-  // 1) SAF01=2 → 레벨 2, 표시
+test('레벨 2 → 레벨 3 으로 오르면 그때 모달이 켜지고, 레벨 3 이 유지되면 다시 켜지 않는다', () => {
   let state = nextAlertState(saf({ SAF01: 2 }), 0);
-  assert.equal(state.level, 2);
-  assert.equal(state.show, true);
+  assert.equal(state.showModal, false);
 
-  // 2) 같은 레벨 2 반복 → 억제
-  state = nextAlertState(saf({ SAF01: 2, SAF02: 1 }), state.shownLevel);
-  assert.equal(state.show, false);
-
-  // 3) SAF04=1 응답으로 레벨 3 (S3) 로 상승 → 다시 표시돼야 한다
-  state = nextAlertState(saf({ SAF01: 2, SAF02: 1, SAF04: 1 }), state.shownLevel);
+  // SAF04=1 → 레벨 3 상승 → 모달
+  state = nextAlertState(saf({ SAF01: 2, SAF04: 1 }), state.shownLevel);
   assert.equal(state.level, 3);
-  assert.equal(state.show, true, '등급이 shownLevel 보다 올라가면 다시 표시해야 한다');
+  assert.equal(state.showModal, true, '등급이 shownLevel 보다 올라가면 모달로 멈춘다');
   assert.equal(state.shownLevel, 3);
 
-  // 4) 레벨 3이 계속 유지돼도 더는 반복 표시하지 않는다
-  state = nextAlertState(saf({ SAF01: 2, SAF02: 1, SAF04: 1, SAF06: 1 }), state.shownLevel);
+  // 레벨 3 유지 → 반복 표시하지 않는다 (원본 문항단위 억제 버그 회귀 방지)
+  state = nextAlertState(saf({ SAF01: 2, SAF04: 1, SAF06: 1 }), state.shownLevel);
   assert.equal(state.level, 3);
-  assert.equal(state.show, false);
+  assert.equal(state.showModal, false);
 });
 
-test('레벨 1(관심 단계)은 모달을 띄우지 않는다 — 임계값은 2 이상', () => {
+test('레벨 3 에 곧바로 도달하면 모달과 배너가 함께 켜진다', () => {
+  const state = nextAlertState(saf({ SAF06: 1 }), 0);
+  assert.equal(state.level, 3);
+  assert.equal(state.showModal, true);
+  assert.equal(state.showBanner, true);
+});
+
+test('레벨 1(관심 단계)은 배너도 모달도 켜지 않는다 — 임계값은 2 이상', () => {
   const state = nextAlertState(saf({ SAF03: 1 }), 0);
   assert.equal(state.level, 1);
-  assert.equal(state.show, false);
-  assert.equal(state.shownLevel, 0, '표시하지 않았으니 shownLevel 도 그대로 유지된다');
+  assert.equal(state.showModal, false);
+  assert.equal(state.showBanner, false);
 });
 
-test('등급이 내려가면(0으로) shownLevel 을 낮추지 않는다 — 이후 같은 등급 재상승 시 다시 억제되어야 한다', () => {
+test('등급이 내려가도 shownLevel 과 배너는 낮추지 않는다', () => {
   let state = nextAlertState(saf({ SAF01: 2 }), 0);
-  assert.equal(state.show, true);
   assert.equal(state.shownLevel, 2);
 
-  // computeLevel 은 답변 스냅샷 기준이라 실제로 레벨이 "내려가는" 입력은 만들 수 없지만
-  // (한 번 2로 응답한 문항 값이 없어지지 않는 한) shownLevel 자체가 낮아지지 않음을 확인한다.
-  state = nextAlertState(saf({ SAF01: 2 }), state.shownLevel);
-  assert.equal(state.shownLevel, 2);
+  // 응답을 0 으로 되돌려 현재 레벨이 0 이 되어도, 이미 드러난 신호는 화면에서 지우지 않는다.
+  state = nextAlertState(saf({ SAF01: 0 }), state.shownLevel);
+  assert.equal(state.level, 0);
+  assert.equal(state.shownLevel, 2, 'shownLevel 은 낮아지지 않는다');
+  assert.equal(state.showBanner, true, '배너는 계속 남는다');
+  assert.equal(state.showModal, false);
 });

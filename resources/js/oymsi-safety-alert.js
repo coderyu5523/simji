@@ -59,8 +59,17 @@
    */
   function nextAlertState(answers, shownLevel) {
     var level = computeLevel(answers);
-    var show = level >= 2 && level > shownLevel;
-    return { level: level, show: show, shownLevel: show ? level : shownLevel };
+    var peak = Math.max(level, shownLevel);
+
+    return {
+      level: level,
+      // 검사를 멈추는 모달은 레벨 3(자살 계획·준비·시도)에만. 등급이 오를 때 한 번.
+      showModal: level >= 3 && level > shownLevel,
+      // 레벨 2 는 화면을 가리지 않는 배너로 알린다. 한 번 뜨면 계속 남긴다 —
+      // 나중에 답을 낮춰도 이미 드러난 신호를 화면에서 지우지 않는다.
+      showBanner: peak >= 2,
+      shownLevel: peak,
+    };
   }
 
   function attachSafetyAlert(doc) {
@@ -68,6 +77,7 @@
     var modal = doc.getElementById('safety-modal');
     if (!modal) return;
 
+    var banner = doc.getElementById('safety-banner');
     var answers = {};
     var shownLevel = 0;
 
@@ -84,14 +94,14 @@
 
         var state = nextAlertState(answers, shownLevel);
         shownLevel = state.shownLevel;
-        if (!state.show) return;
 
-        doc.getElementById('safety-title').textContent =
-          state.level >= 3 ? '지금 바로 도움이 필요해 보입니다' : '지금 많이 힘드신 것 같습니다';
+        if (state.showBanner && banner) banner.classList.remove('hidden');
+
+        if (!state.showModal) return;
+
+        doc.getElementById('safety-title').textContent = '지금 바로 도움이 필요해 보입니다';
         doc.getElementById('safety-body').textContent =
-          state.level >= 3
-            ? '혼자 있지 말고 지금 전화해 주세요. 위급하면 112나 119에 연락해도 됩니다. 검사는 이어서 하셔도 괜찮습니다.'
-            : '혼자 견디지 말고 오늘 안에 이야기해 주세요. 검사는 이어서 하셔도 괜찮습니다.';
+          '혼자 있지 말고 지금 전화해 주세요. 위급하면 112나 119에 연락해도 됩니다. 검사는 이어서 하셔도 괜찮습니다.';
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
