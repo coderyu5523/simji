@@ -51,7 +51,7 @@
                 <div class="rounded-xl bg-black/5 text-navy/50 px-4 py-3.5 text-sm text-center">보유한 검사권이 없어요.<br>오른쪽에서 발급 후 이용해 주세요.</div>
               @endif
             @else
-              <a href="{{ route('login') }}" class="block text-center rounded-xl bg-deepgreen text-cream px-6 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
+              <a href="{{ route('login', ['next' => route('assessment.consent', $test->code, absolute: false)]) }}" class="block text-center rounded-xl bg-deepgreen text-cream px-6 py-3.5 font-bold shadow-lg hover:brightness-110 transition">로그인하고 검사 시작</a>
             @endauth
           </div>
         </div>
@@ -74,7 +74,7 @@
               <button type="button" onclick="alert('준비 중인 기능입니다.')" class="mt-2 w-full rounded-xl border border-teal/50 text-teal px-4 py-2.5 text-sm font-semibold hover:bg-mint/20 transition">여러 명 한 번에 (엑셀) <span class="text-xs align-top">준비중</span></button>
               @if($product)<p class="mt-2 text-xs text-navy/40">유료 검사는 보유 검사권에서 차감됩니다.</p>@endif
             @else
-              <a href="{{ route('login') }}" class="block text-center rounded-xl bg-teal text-white px-6 py-3.5 font-bold hover:brightness-110 transition">로그인하고 발급하기</a>
+              <a href="{{ route('login', ['next' => route('catalog.show', $test->code, absolute: false)]) }}" class="block text-center rounded-xl bg-teal text-white px-6 py-3.5 font-bold hover:brightness-110 transition">로그인하고 발급하기</a>
             @endauth
           </div>
         </div>
