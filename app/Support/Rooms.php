@@ -25,7 +25,8 @@ class Rooms
                 'desc' => '진로와 감정 사이, 흔들리는 마음 다잡기',
                 'tags' => ['스트레스','시험불안','진로','대인관계','자기조절'],
                 'planned_tests' => [
-                    ['name'=>'청소년 마음상태검사','target'=>'학생 본인','guardian'=>false],
+                    // '청소년 마음상태검사' 는 실물(OY_MSI)이 만들어져 자리표시자에서 제거했다.
+                    // 방 목록 노출은 tests.status 로 제어된다(draft 면 안 뜬다).
                     ['name'=>'학업스트레스검사',  'target'=>'학생 본인','guardian'=>false],
                     ['name'=>'시험불안검사',      'target'=>'학생 본인','guardian'=>false],
                     ['name'=>'진로성향검사',      'target'=>'학생 본인','guardian'=>false],
