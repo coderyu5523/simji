@@ -56,7 +56,7 @@
             @endif
           </fieldset>
         @endforeach
-        <button class="w-full rounded-xl bg-deepgreen text-cream py-4 font-bold shadow-lg hover:brightness-110 transition">제출하고 결과 보기</button>
+        <button data-submit-once class="w-full rounded-xl bg-deepgreen text-cream py-4 font-bold shadow-lg hover:brightness-110 transition disabled:opacity-60">제출하고 결과 보기</button>
       </form>
     </div>
   </div>
@@ -67,6 +67,20 @@
       document.getElementById('done').textContent = done;
       document.getElementById('bar').style.width = (done/total*100) + '%';
     });
+
+    // 이중 제출 방지. 버튼을 두 번 누르면 채점 요청이 두 번 나가고, 두 번째는 서버가
+    // 결과로 흘려보내지만 애초에 보내지 않는 것이 낫다. submit 이벤트가 이미 발생한
+    // 뒤에 비활성화하므로 폼 전송 자체는 정상 진행된다(버튼에 name 이 없어 값도 필요없다).
+    (function () {
+      var form = document.getElementById('qform');
+      var btn = form.querySelector('[data-submit-once]');
+      var sent = false;
+      form.addEventListener('submit', function (e) {
+        if (sent) { e.preventDefault(); return; }
+        sent = true;
+        if (btn) { btn.disabled = true; btn.textContent = '제출 중…'; }
+      });
+    })();
   </script>
 
   @if($test->scoring_engine === 'oy_msi')

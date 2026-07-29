@@ -56,6 +56,21 @@ test('이미 제출한 검사에 다시 제출하면 결과로 보내고 재채�
     expect($attempt->fresh()->submitted_at->eq($submittedAt))->toBeTrue();
 });
 
+// 서버는 이중 제출을 결과로 흘려보내지만(위 테스트), 애초에 요청이 두 번 가지 않게 한다.
+test('문항 화면에 이중 제출 방지가 붙어 있다', function () {
+    $attempt = TestAttempt::create([
+        'test_id' => $this->test->id, 'user_id' => $this->user->id,
+        'status' => 'in_progress', 'started_at' => now(),
+        'age_at_test' => 16, 'nickname' => '민수',
+    ]);
+    app(ConsentGate::class)->record($attempt, ConsentGate::SENSITIVE, 'youth', $this->user->id);
+
+    $this->actingAs($this->user)
+        ->get(route('assessment.take', ['OY_MSI', $attempt->id]))
+        ->assertOk()
+        ->assertSee('data-submit-once', escape: false);
+});
+
 test('이미 제출한 검사의 문항 화면을 열면 결과로 보낸다', function () {
     $attempt = submittedAttempt();
 
