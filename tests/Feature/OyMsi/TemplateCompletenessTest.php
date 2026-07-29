@@ -215,10 +215,13 @@ test('보호자 문안에 담당자용 위험 문장이 남아 있지 않다', f
 // 2026-07-29 운영 결정으로 뒤집힌 규칙이다. 원래는 "청소년용 문안은 반말체다" 였다
 // (005 원문이 반말). "어떤 연령에게도 반말로 서비스하지 않는다"가 서비스 방침이 되면서
 // 어미를 존댓말로 바꿨고, 2인칭 "네/네가"도 "본인의/본인이"로 바꿨다.
-test('청소년용 문안에 반말이 남아 있지 않다', function () {
+// 보호자용도 함께 본다. 006 의 "피해야 할 말 / 권장 표현" 인용문이 반말이었는데
+// (“죽을 용기로 살아라.”, “약속해. …”, “…같이 가자.”) 화면에 그대로 렌더되므로
+// 인용문이라고 예외를 두지 않는다.
+test('결과 문안에 반말이 남아 있지 않다', function () {
     $violations = [];
-    foreach (InterpretationTemplate::where('template_key', 'like', 'result.YOUTH.%')->get() as $t) {
-        if (preg_match('/(있어|없어|아니야|이야|괜찮아|보여|같아|돼|좋아|줘|해)\./u', $t->text)) {
+    foreach (InterpretationTemplate::where('template_key', 'like', 'result.%')->get() as $t) {
+        if (preg_match('/(있어|없어|아니야|이야|괜찮아|보여|같아|돼|좋아|줘|해|들려|가자|살아라|않을게)\./u', $t->text)) {
             $violations[] = $t->template_key.' (반말 어미)';
         }
         if (preg_match('/네가|네 /u', $t->text)) {
