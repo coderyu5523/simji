@@ -175,7 +175,8 @@ test('청소년용 문안 65건은 수신자가 맞으므로 손대지 않는다
 
     expect(count($rows))->toBe(65);   // 요인 54 + SAF 4 + ENV 4 + OVERALL 3
     expect(hash('sha256', json_encode($rows, JSON_UNESCAPED_UNICODE)))
-        ->toBe('f2991e713599e8d0b7a454437e3464fd4bcee4566847ceb39c44698ec7047d86');
+        // 2026-07-29 갱신: 반말 → 존댓말 정중화(운영 결정). 내용·순서·문장 구분은 그대로.
+        ->toBe('bb710d7ae79dbfb2f2f7298a3ed9e3c3be96f23e6db7799a14e7d21cfe23586e');
 });
 
 test('보호자 문안에 남은 문장은 비어 있지 않다 — 제거로 빈 값이 생기지 않았다', function () {
@@ -211,28 +212,43 @@ test('보호자 문안에 담당자용 위험 문장이 남아 있지 않다', f
     expect($offenders)->toBe([], "담당자용 문장 잔존:\n" . implode("\n", $offenders));
 });
 
-test('청소년용 문안은 반말체다', function () {
-    // 005 문안은 "~해", "~야", "~어" 로 끝난다. 존댓말(습니다/세요)이 섞이면 톤이 깨진다.
+// 2026-07-29 운영 결정으로 뒤집힌 규칙이다. 원래는 "청소년용 문안은 반말체다" 였다
+// (005 원문이 반말). "어떤 연령에게도 반말로 서비스하지 않는다"가 서비스 방침이 되면서
+// 어미를 존댓말로 바꿨고, 2인칭 "네/네가"도 "본인의/본인이"로 바꿨다.
+test('청소년용 문안에 반말이 남아 있지 않다', function () {
     $violations = [];
     foreach (InterpretationTemplate::where('template_key', 'like', 'result.YOUTH.%')->get() as $t) {
-        if (preg_match('/(습니다|하세요|십시오)/u', $t->text)) $violations[] = $t->template_key;
+        if (preg_match('/(있어|없어|아니야|이야|괜찮아|보여|같아|돼|좋아|줘|해)\./u', $t->text)) {
+            $violations[] = $t->template_key.' (반말 어미)';
+        }
+        if (preg_match('/네가|네 /u', $t->text)) {
+            $violations[] = $t->template_key.' (2인칭 반말)';
+        }
     }
-    expect($violations)->toBe([]);
+    expect($violations)->toBe([], "반말 잔존:\n".implode("\n", $violations));
 });
 
-test('반말체 검사기는 실제로 존댓말을 잡아낸다', function () {
+test('반말 검사기는 실제로 반말을 잡아낸다', function () {
     InterpretationTemplate::create([
         'template_key' => 'result.YOUTH.DEP.GREEN.meaning',
         'locale' => 'ko-KR',
         'version' => '9.9.9-tone-probe',
-        'text' => '현재 일상생활이 크게 흔들리는 상태는 아닙니다. 상담자에게 이야기하세요.',
+        'text' => '현재 일상생활이 크게 흔들리는 상태는 아니야. 네가 잘못한 게 아니야.',
         'active' => true,
     ]);
 
     $violations = [];
     foreach (InterpretationTemplate::where('template_key', 'like', 'result.YOUTH.%')->get() as $t) {
-        if (preg_match('/(습니다|하세요|십시오)/u', $t->text)) $violations[] = $t->template_key;
+        if (preg_match('/(있어|없어|아니야|이야|괜찮아|보여|같아|돼|좋아|줘|해)\./u', $t->text)) {
+            $violations[] = $t->template_key.' (반말 어미)';
+        }
+        if (preg_match('/네가|네 /u', $t->text)) {
+            $violations[] = $t->template_key.' (2인칭 반말)';
+        }
     }
 
-    expect($violations)->toBe(['result.YOUTH.DEP.GREEN.meaning']);
+    expect($violations)->toBe([
+        'result.YOUTH.DEP.GREEN.meaning (반말 어미)',
+        'result.YOUTH.DEP.GREEN.meaning (2인칭 반말)',
+    ]);
 });

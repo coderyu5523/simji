@@ -773,13 +773,13 @@ test('환경위험이 없으면 보호자 화면에 상담 권고가 붙지 않�
     expect($html)->not->toContain('전문기관의 상담을 받아 보시기를 권합니다');
 });
 
-test('청소년용 환경위험 문안은 그대로 남아 있다', function () {
-    // 수신자가 맞는 쪽(청소년 본인)은 손대지 않았다.
+test('청소년용 환경위험 문안은 존댓말로 렌더된다', function () {
+    // 2026-07-29 존댓말 정중화 후에도 청소년용 문안이 정상 렌더되는지 고정한다.
     $attempt = completedAttempt(['TRM06' => 3], $this->user);
     $this->actingAs($this->user)
         ->get(route('result.show', $attempt->id))
         ->assertOk()
-        ->assertSee('지금 네 안전이 위험할 수 있어. 즉시 안전한 곳을 확보하고 도움을 받아야 해.')
+        ->assertSee('지금 본인의 안전이 위험할 수 있습니다. 즉시 안전한 곳을 확보하고 도움을 받아야 합니다.')
         ->assertSee('청소년쉼터, 1388, 경찰 또는 보호기관 도움받기');
 });
 
