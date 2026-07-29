@@ -34,11 +34,9 @@
           <fieldset class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5" data-q>
             <legend class="font-semibold text-navy flex gap-2"><span class="text-teal">{{ $item->no }}.</span> {{ $item->text }}</legend>
 
-            @if($item->timeframe_code === 'PAST_12_MONTHS')
-              <p class="text-xs font-semibold text-amber-700 mb-2 mt-2">최근 12개월 동안을 기준으로 답해 주세요</p>
-            @elseif($item->timeframe_code === 'PAST_2_WEEKS')
-              <p class="text-xs text-navy/45 mb-2 mt-2">최근 2주 동안을 기준으로 답해 주세요</p>
-            @endif
+            {{-- 기간 안내는 따로 붙이지 않는다 (TakeTimeframeTest 가 근거를 고정한다).
+                 12개월 기준 문항(SAF05·SAF06)은 문항 텍스트에 "최근 12개월 동안"이 들어 있고,
+                 2주 기준은 안내 화면이 알린다. --}}
 
             <div class="gap-1.5 mt-5 {{ count($options) === 4 ? 'grid grid-cols-4' : 'flex justify-between' }}">
               @foreach($options as $opt)

@@ -118,8 +118,10 @@ class AssessmentController extends Controller
             $attempt = $existingId ? TestAttempt::find($existingId) : null;
             abort_unless($attempt && $attempt->test_id === $test->id, 403, '검사 전 동의가 확인되지 않았습니다.');
             // 제출 완료된 attempt 로 start() 를 재호출해도 submitted -> in_progress 로 되돌리지 않는다
-            // (되돌리면 submit() 의 이중제출 409 가드가 무력화되고 채점이 재실행된다).
-            abort_if($attempt->status === 'submitted', 409, '이미 제출된 검사입니다.');
+            // (되돌리면 이중제출 가드가 무력화되고 채점이 재실행된다). 상태는 그대로 두고 결과로 보낸다.
+            if ($attempt->status === 'submitted') {
+                return redirect()->route('result.show', $attempt->id);
+            }
             // 기본정보(닉네임)를 건너뛰고 응시로 직행할 수 없다 — 없으면 기본정보 화면으로 되돌린다.
             if (!$attempt->nickname) {
                 return redirect()->route('oymsi.profile.form', $code);
@@ -157,6 +159,11 @@ class AssessmentController extends Controller
     {
         $this->authorizeAttempt($request, $attempt);
         app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
+        // 이미 끝낸 검사의 문항 화면을 다시 열면(뒤로가기 등) 결과로 보낸다.
+        // 다시 답할 수 있는 폼을 보여주면 제출 순간 409 를 마주하게 된다.
+        if ($attempt->status === 'submitted') {
+            return redirect()->route('result.show', $attempt->id);
+        }
         $attempt->load('test.items');
         // start() 를 거치지 않고 take() 를 직접 호출해 기본정보(닉네임) 단계를 건너뛰는 것을 막는다.
         if ($attempt->test->consent_required && !$attempt->nickname) {
@@ -169,7 +176,12 @@ class AssessmentController extends Controller
     {
         $this->authorizeAttempt($request, $attempt);
         app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
-        abort_if($attempt->status === 'submitted', 409);
+        // 이중 제출(버튼 두 번 클릭·뒤로가기 후 재제출)은 오류가 아니라 "이미 끝난 일"이다.
+        // 재채점·응답 덮어쓰기는 하지 않고 결과로 보낸다 — 기존 409 가드가 지키던
+        // "다시 채점하지 않는다"는 그대로다.
+        if ($attempt->status === 'submitted') {
+            return redirect()->route('result.show', $attempt->id);
+        }
         // submit() 을 직접 호출해 기본정보 단계를 건너뛰고 채점까지 끝내는 것을 막는다.
         abort_if($attempt->test->consent_required && !$attempt->nickname, 403, '검사 전 기본정보가 확인되지 않았습니다.');
 

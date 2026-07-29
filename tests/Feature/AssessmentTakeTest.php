@@ -66,7 +66,9 @@ test('submit with out-of-range answer value returns 422 and does not create resu
     expect(\App\Models\TestResult::where('attempt_id', $attempt->id)->exists())->toBeFalse();
 });
 
-test('submitting to already-submitted attempt returns 409 and does not re-score', function () {
+// 2026-07-29: 이중 제출은 오류 페이지(409) 대신 결과로 보낸다. 지켜야 할 것은
+// 상태 코드가 아니라 "재채점하지 않는다" 이므로 그 단언은 그대로 둔다.
+test('submitting to already-submitted attempt redirects to result and does not re-score', function () {
     $user = User::factory()->create();
     [$test, $attempt] = makeAttempt($user);
     $answers = [];
@@ -78,6 +80,7 @@ test('submitting to already-submitted attempt returns 409 and does not re-score'
     // Second submission should be blocked
     $res = $this->actingAs($user)
         ->post("/assessment/KMSIA-SAMPLE/take/{$attempt->id}", ['answers' => $answers]);
-    $res->assertStatus(409);
+    $res->assertRedirect(route('result.show', $attempt->id));
     expect(\App\Models\TestResult::where('attempt_id', $attempt->id)->count())->toBe($resultCount);
+    expect($attempt->fresh()->status)->toBe('submitted');
 });

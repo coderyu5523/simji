@@ -155,6 +155,11 @@ class LinkController extends Controller
         $this->authorizeLinkAttempt($request, $voucher, $attempt);
         app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
 
+        // 이미 끝낸 검사의 문항 화면을 다시 열면 결과로 보낸다(개인 경로 take() 와 동일).
+        if ($attempt->status === 'submitted') {
+            return redirect()->route('result.show', $attempt->id);
+        }
+
         $attempt->load('test.items');
         return view('assessment.take', [
             'test' => $attempt->test,
@@ -168,7 +173,10 @@ class LinkController extends Controller
         $voucher = $this->voucherOrFail($token);
         $this->authorizeLinkAttempt($request, $voucher, $attempt);
         app(\App\Services\OyMsi\ConsentGate::class)->assertSatisfied($attempt);
-        abort_if($attempt->status === 'submitted', 409);
+        // 이중 제출은 오류가 아니라 "이미 끝난 일"이다. 재채점하지 않고 결과로 보낸다.
+        if ($attempt->status === 'submitted') {
+            return redirect()->route('result.show', $attempt->id);
+        }
 
         $itemsById = $attempt->test->items()->get()->keyBy('id');
         $request->validate([

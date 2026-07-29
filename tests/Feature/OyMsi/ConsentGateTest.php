@@ -131,9 +131,11 @@ test('제출 완료된 attempt 로 start 를 다시 호출해도 submitted 가 i
     $attempt = TestAttempt::where('test_id', $this->test->id)->latest('id')->first();
     $attempt->update(['status' => 'submitted', 'submitted_at' => now()]);
 
+    // 2026-07-29: 409 대신 결과로 보낸다. 지켜야 할 것은 상태 코드가 아니라
+    // "submitted 가 in_progress 로 되돌아가지 않는다" 이므로 그 단언은 그대로다.
     $this->actingAs($this->user)
         ->post(route('assessment.start', 'OY_MSI'))
-        ->assertStatus(409);
+        ->assertRedirect(route('result.show', $attempt->id));
 
     expect($attempt->fresh()->status)->toBe('submitted');
 });
