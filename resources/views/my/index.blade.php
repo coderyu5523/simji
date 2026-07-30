@@ -56,7 +56,17 @@
 
       {{-- 발급 명부 --}}
       <div>
-        <h2 class="font-bold text-deepgreen mb-4">발급한 검사권 <span class="text-sm text-navy/40 font-normal">({{ $issued->count() }})</span></h2>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 class="font-bold text-deepgreen">발급한 검사권 <span class="text-sm text-navy/40 font-normal">({{ $issued->count() }})</span></h2>
+          @if($issued->isNotEmpty())
+            @foreach($issued->pluck('test')->unique('id') as $issuedTest)
+              <a href="{{ route('my.exports.institution', $issuedTest) }}"
+                 class="rounded-lg bg-teal/10 text-teal px-3 py-2 text-xs font-bold hover:bg-teal/20 transition whitespace-nowrap">
+                {{ $issuedTest->title_easy }} 명부 내려받기
+              </a>
+            @endforeach
+          @endif
+        </div>
         @if($issued->isEmpty())
           <p class="text-sm text-navy/50 rounded-2xl bg-white p-6 ring-1 ring-black/5">아직 발급한 검사권이 없습니다. 심리검사에서 검사를 골라 발급해 보세요.</p>
         @else

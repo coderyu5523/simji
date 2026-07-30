@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/my/vouchers/{voucher}/visibility', [MyTestController::class, 'toggleVisibility'])->name('my.voucher.visibility');
     Route::post('/my/vouchers/{voucher}/guardian-consent', [GuardianConfirmController::class, 'confirm'])->name('my.voucher.guardian.confirm');
     Route::post('/my/vouchers/{voucher}/guardian-consent/release', [GuardianConfirmController::class, 'release'])->name('my.voucher.guardian.release');
+    Route::get('/my/exports/{test:code}', [ExportController::class, 'institution'])->name('my.exports.institution');
     Route::get('/checkout/{product}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout/{product}', [CheckoutController::class, 'start'])->name('checkout.start');
 });

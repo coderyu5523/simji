@@ -23,6 +23,23 @@ class ExportController extends Controller
     }
 
     /**
+     * 기관용 — 담당자. 자기가 발급한 검사권의 응시분만.
+     *
+     * 인가 규칙을 새로 만들지 않고 명부(MyTestController::index)와 같은 규칙을 쓴다:
+     * vouchers.user_id = 로그인 사용자.
+     */
+    public function institution(Test $test): StreamedResponse
+    {
+        $attempts = TestAttempt::where('test_id', $test->id)
+            ->where('status', 'submitted')
+            ->whereHas('voucher', fn ($q) => $q->where('user_id', auth()->id()))
+            ->with('answers', 'result', 'voucher')
+            ->orderBy('id');
+
+        return $this->stream($test, $attempts, ResponseExporter::PROFILE_INSTITUTION);
+    }
+
+    /**
      * 스트리밍으로 내보낸다 — 응시가 쌓이면 메모리에 다 올릴 수 없다.
      * chunk 로 읽어 한 줄씩 흘려보낸다.
      */
