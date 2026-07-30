@@ -66,6 +66,7 @@ SAF 영역이 의도적으로 빠져 있어(`OyMsiScoringEngine:84-88`) 연구�
 |---|---|
 | 식별 | 응시자 이름(`vouchers.recipient_name` → 없으면 `attempts.nickname`), 발급일, 제출일 |
 | 응시 | 연령, 성별 |
+| 문항 | 문항별 원점수 — **SAF 문항만 제외**, 나머지는 포함 |
 | 채점 | 영역별 원점수·등급(**SAF 영역 제외**), `overall_signal`, `safety_level`(즉시/당일 표기), `environment_level` |
 
 영역 점수는 `test_results.area_scores` 를 그대로 쓴다 — 이 컬럼은 이미 SAF 가 빠져 있어
