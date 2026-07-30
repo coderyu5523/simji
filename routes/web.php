@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CatalogController;
@@ -119,5 +120,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')
         Route::get('/orders', 'orders')->name('orders');
         Route::get('/tests', 'tests')->name('tests');
     });
+
+// 연구용 응답 추출 — 관리자 전용. 자살·자해 문항이 포함되므로 가드가 전제다.
+Route::middleware(['auth', 'admin'])
+    ->get('/admin/exports/{test:code}/research', [ExportController::class, 'research'])
+    ->name('admin.exports.research');
 
 require __DIR__.'/auth.php';

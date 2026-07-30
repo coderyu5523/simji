@@ -12,6 +12,7 @@
                         <th class="px-5 py-3 font-medium">문항</th>
                         <th class="px-5 py-3 font-medium">응시</th>
                         <th class="px-5 py-3 font-medium">상태</th>
+                        <th class="px-5 py-3">응답</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -25,9 +26,13 @@
                             <td class="px-5 py-3">
                                 <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {{ $t->status === 'active' ? 'bg-signal-green/20 text-green-700' : 'bg-black/5 text-navy/50' }}">{{ $t->status === 'active' ? '활성' : $t->status }}</span>
                             </td>
+                            <td class="px-5 py-3">
+                                <a href="{{ route('admin.exports.research', $t) }}"
+                                   class="text-sm font-semibold text-teal hover:text-deepgreen transition">CSV 내려받기</a>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-5 py-10 text-center text-navy/40">검사가 없습니다.</td></tr>
+                        <tr><td colspan="7" class="px-5 py-10 text-center text-navy/40">검사가 없습니다.</td></tr>
                     @endforelse
                 </tbody>
             </table>
