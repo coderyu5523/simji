@@ -188,6 +188,21 @@ test('safety_items 키가 없는 검사는 제외 없이 전부 나간다', func
     expect($headers)->toContain('SAF06');
 });
 
+test('safety_items 를 지워도 영역 제외(included_in_overall)는 그대로 작동한다', function () {
+    // 문항 제외(safety_items)와 영역 제외(included_in_overall)는 서로 다른 키를 읽는
+    // 별개 메커니즘이다 — 한쪽을 지워도 다른 쪽 필터가 SAF_raw/SAF_band 를 계속 숨겨야 한다.
+    $rule = $this->test->scoringRule;
+    $rules = $rule->rules;
+    unset($rules['safety_items']);
+    $rule->update(['rules' => $rules]);
+
+    $headers = $this->exporter->headers($this->test->fresh(), ResponseExporter::PROFILE_INSTITUTION);
+
+    expect($headers)->toContain('SAF06')            // 문항은 다시 보인다
+        ->not->toContain('SAF_raw')                  // 영역은 여전히 숨는다
+        ->not->toContain('SAF_band');
+});
+
 test('파일명에 검사 코드와 용도가 들어간다', function () {
     $name = $this->exporter->filename($this->test, ResponseExporter::PROFILE_RESEARCH);
 
