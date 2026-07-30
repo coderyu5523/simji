@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'user_type',
         'organization',
+        'is_admin',
         'email',
         'phone',
         'password',
@@ -49,6 +50,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'marketing_agree' => 'boolean',
+            'is_admin' => 'boolean',
         ];
     }
     public function orders() { return $this->hasMany(\App\Models\Order::class); }

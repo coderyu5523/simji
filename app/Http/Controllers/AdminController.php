@@ -6,7 +6,6 @@ use App\Models\Test;
 use App\Models\TestAttempt;
 use App\Models\User;
 
-// ⚠️ 임시 관리자 — 인증 가드 없음(직접 URL 접근). 실서비스 전 반드시 auth+권한 미들웨어 적용.
 class AdminController extends Controller
 {
     public function dashboard()

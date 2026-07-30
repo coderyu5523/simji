@@ -111,12 +111,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/payment/fail', [PaymentController::class, 'fail'])->name('payment.fail');
 });
 
-// 관리자 (임시 — 인증 가드 없음, 직접 URL 접근. ⚠️ 실서비스 전 auth 미들웨어 필수)
-Route::prefix('admin')->name('admin.')->controller(AdminController::class)->group(function () {
-    Route::get('/', 'dashboard')->name('dashboard');
-    Route::get('/members', 'members')->name('members');
-    Route::get('/orders', 'orders')->name('orders');
-    Route::get('/tests', 'tests')->name('tests');
-});
+// 관리자 — 로그인 + is_admin 필요. 관리자 임명은 SQL/커맨드로 한다(임명 UI 는 아직 없음).
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')
+    ->controller(AdminController::class)->group(function () {
+        Route::get('/', 'dashboard')->name('dashboard');
+        Route::get('/members', 'members')->name('members');
+        Route::get('/orders', 'orders')->name('orders');
+        Route::get('/tests', 'tests')->name('tests');
+    });
 
 require __DIR__.'/auth.php';
