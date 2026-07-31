@@ -46,7 +46,7 @@
             <div class="gap-1.5 mt-5 {{ count($options) === 4 ? 'grid grid-cols-4' : 'flex justify-between' }}">
               @foreach($options as $opt)
                 <label class="flex-1 cursor-pointer">
-                  <input type="radio" name="answers[{{ $item->id }}]" value="{{ $opt['value'] }}" class="peer sr-only js-answer" @if($isSafety) data-item-code="{{ $item->item_code }}" @endif required>
+                  <input type="radio" name="answers[{{ $item->id }}]" value="{{ $opt['value'] }}" class="peer sr-only" required>
                   <span class="block text-center text-xs rounded-xl border border-black/10 py-2.5 px-1 text-navy/60 transition peer-checked:bg-deepgreen peer-checked:text-cream peer-checked:border-deepgreen hover:border-teal">{{ $opt['label'] }}</span>
                 </label>
               @endforeach
@@ -54,8 +54,7 @@
 
             @if($isSafety)
               <label class="mt-2 inline-flex items-center gap-2 cursor-pointer text-sm text-navy/55">
-                <input type="radio" name="answers[{{ $item->id }}]" value="PREFER_NOT"
-                       class="js-answer" data-item-code="{{ $item->item_code }}">
+                <input type="radio" name="answers[{{ $item->id }}]" value="PREFER_NOT">
                 응답하기 어려움
               </label>
             @endif
@@ -88,44 +87,8 @@
     })();
   </script>
 
-  @if($test->scoring_engine === 'oy_msi')
-  {{-- 레벨 2(죽음사고·자해사고가 여러 번) — 검사를 멈추지 않고 화면 아래 고정으로 알린다.
-       한 번 뜨면 검사가 끝날 때까지 남는다. 멈추는 모달은 레벨 3 에만 쓴다. --}}
-  <div id="safety-banner" class="hidden fixed bottom-0 inset-x-0 z-40 border-t border-signal-yellow/40 bg-signal-yellow/10 backdrop-blur px-4 py-3">
-    <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-navy/80">혼자 견디지 말고 오늘 안에 이야기해 주세요.</p>
-      <div class="flex gap-2">
-        <a href="tel:109" class="rounded-lg bg-signal-red text-white px-4 py-2 text-xs font-bold whitespace-nowrap">109 자살예방</a>
-        <a href="tel:1388" class="rounded-lg bg-teal text-white px-4 py-2 text-xs font-bold whitespace-nowrap">1388 청소년상담</a>
-      </div>
-    </div>
-  </div>
-
-  <div id="safety-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-    <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
-      <h2 id="safety-title" class="text-lg font-extrabold text-deepgreen"></h2>
-      <p id="safety-body" class="mt-3 text-sm text-navy/75"></p>
-      <div class="mt-5 grid gap-2">
-        <a href="tel:109" class="rounded-xl bg-signal-red text-white py-3 text-center font-bold">109 자살예방 상담</a>
-        <a href="tel:1388" class="rounded-xl bg-teal text-white py-3 text-center font-bold">1388 청소년 상담</a>
-        <button type="button" id="safety-continue"
-                class="rounded-xl bg-navy/5 py-3 font-semibold text-navy/70">검사 계속하기</button>
-      </div>
-    </div>
-  </div>
-
-  {{-- resources/js/oymsi-safety-alert.js 를 그대로 인라인한다 (별도 정적 자산 URL이 아니므로
-       브라우저 캐시로 인한 미반영 문제가 없다). 같은 파일을 tests/js/oymsi-safety-alert.test.js 가
-       직접 검증하므로 화면 코드와 테스트 대상이 항상 같다. --}}
-  @php
-    $safetyScriptPath = resource_path('js/oymsi-safety-alert.js');
-    $safetyScript = file_get_contents($safetyScriptPath);
-    if ($safetyScript === false) {
-        // 조용한 폴백 금지 — 안전 스크립트가 없으면 모달 마크업만 있고 영원히 안 뜨는
-        // 상태로 200 응답이 나가는 것이 가장 나쁘다. 드러낸다.
-        throw new \RuntimeException("안전 안내 스크립트 파일을 읽을 수 없습니다: {$safetyScriptPath}");
-    }
-  @endphp
-  <script>{!! $safetyScript !!}</script>
-  @endif
+  {{-- 검사 중 안전 안내(모달·배너)는 두지 않는다. OY_MSI 는 표준화 전 데이터 수집용
+       사전검사이고, 응답 중 개입 장치를 얹지 않기로 했다(2026-07-31 결정).
+       안전 평가 자체는 그대로다 — SafetyEvaluator 가 서버에서 등급을 매기고,
+       결과 화면(oymsi/result.blade.php)이 안전 안내를 맨 위에 보여준다. --}}
 </x-layouts.app>

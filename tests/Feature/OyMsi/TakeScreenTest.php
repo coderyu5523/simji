@@ -52,12 +52,18 @@ test('응답거부 선택지가 제공된다', function () {
         ->assertSee('응답하기 어려움');
 });
 
-test('안전문항에 data-safety 속성이 붙는다', function () {
-    $saf = $this->test->items->firstWhere('item_code', 'SAF04');
-    $this->actingAs($this->user)
+// data-item-code 는 검사 중 안전 안내 스크립트의 후크였고 그 스크립트를 걷어내면서 같이 뺐다.
+// 안전문항에만 남는 실제 동작은 응답거부 선택지다 — 그쪽을 고정한다.
+test('응답거부 선택지는 안전문항에만 붙는다', function () {
+    $html = $this->actingAs($this->user)
         ->get(route('assessment.take', ['OY_MSI', $this->attempt->id]))
-        ->assertSee('data-item-code="SAF04"', false);
-    expect($saf->area)->toBe('SAF');
+        ->assertOk()
+        ->getContent();
+
+    $safCount = $this->test->items->where('area', 'SAF')->count();
+
+    expect($safCount)->toBe(6);
+    expect(substr_count($html, 'value="PREFER_NOT"'))->toBe($safCount);
 });
 
 test('기존 5점 검사 화면은 그대로 동작한다 (회귀)', function () {
@@ -94,16 +100,21 @@ test('기존 5점 검사는 숫자가 아니라 한글 라벨로 렌더된다 (�
     $res->assertSee('매우 그렇다');
 });
 
-// Fix round 1 — Important 3/4: 모달 마크업·안전 스크립트가 OY_MSI 화면에는 있고
-// 기존 5점 검사 화면에는 없어야 한다 (scoring_engine 분기 확인 + 조용한 누락 방지).
-test('OY_MSI 응시 화면에는 안전 모달과 안전 스크립트가 렌더된다', function () {
-    $this->actingAs($this->user)
-        ->get(route('assessment.take', ['OY_MSI', $this->attempt->id]))
-        ->assertSee('id="safety-modal"', false)
-        ->assertSee('attachSafetyAlert', false);
+// 검사 중 안전 안내(모달·배너)는 제거했다 — OY_MSI 는 표준화 전 데이터 수집용
+// 사전검사라 응답 중 개입 장치를 두지 않기로 했다(2026-07-31). 안전 안내는 결과 화면에만
+// 있고, 등급 판정은 서버 SafetyEvaluator 가 그대로 한다.
+test('OY_MSI 응시 화면에 안전 모달·배너를 띄우지 않는다', function () {
+    $res = $this->actingAs($this->user)
+        ->get(route('assessment.take', ['OY_MSI', $this->attempt->id]));
+
+    $res->assertOk();
+    $res->assertDontSee('safety-modal', false);
+    $res->assertDontSee('safety-banner', false);
+    $res->assertDontSee('attachSafetyAlert', false);
+    $res->assertDontSee('109', false);
 });
 
-test('기존 5점 검사 화면에는 안전 모달이 없다 (회귀)', function () {
+test('기존 5점 검사 화면에도 안전 모달이 없다 (회귀)', function () {
     (new Database\Seeders\SampleTestSeeder())->run();
     $sample = Test::where('code', 'KMSIA-SAMPLE')->with('items')->firstOrFail();
     $attempt = TestAttempt::create([

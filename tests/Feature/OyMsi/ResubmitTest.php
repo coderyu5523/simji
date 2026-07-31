@@ -71,8 +71,9 @@ test('문항 화면에 이중 제출 방지가 붙어 있다', function () {
         ->assertSee('data-submit-once', escape: false);
 });
 
-// 레벨 2 는 모달로 검사를 멈추지 않고 하단 고정 배너로 알린다(2026-07-29 방침).
-test('문항 화면에 안전 배너와 모달이 둘 다 준비돼 있다', function () {
+// 2026-07-31: 검사 중 안전 안내(배너·모달)를 걷어냈다. 응답 중에는 어떤 개입도 하지 않고,
+// 안전 안내는 결과 화면에서만 보여준다.
+test('문항 화면에 안전 배너·모달이 없다', function () {
     $attempt = TestAttempt::create([
         'test_id' => $this->test->id, 'user_id' => $this->user->id,
         'status' => 'in_progress', 'started_at' => now(),
@@ -83,8 +84,8 @@ test('문항 화면에 안전 배너와 모달이 둘 다 준비돼 있다', fun
     $this->actingAs($this->user)
         ->get(route('assessment.take', ['OY_MSI', $attempt->id]))
         ->assertOk()
-        ->assertSee('id="safety-banner"', escape: false)
-        ->assertSee('id="safety-modal"', escape: false);
+        ->assertDontSee('safety-banner', escape: false)
+        ->assertDontSee('safety-modal', escape: false);
 });
 
 test('이미 제출한 검사의 문항 화면을 열면 결과로 보낸다', function () {
