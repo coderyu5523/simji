@@ -17,7 +17,7 @@ test('링크 응시가 완료되면 명부에 청소년 닉네임이 응시자�
     ]);
 
     $this->post(route('link.age.submit', 'tok-myindex'),
-        ['birthdate' => now()->subYears(16)->subDay()->format('Y-m-d')]);
+        birthdateFields(now()->subYears(16)->subDay()->format('Y-m-d')));
     $this->post(route('link.start', 'tok-myindex'), ['nickname' => '민들레', 'gender' => 'female', 'agree' => '1'])
         ->assertRedirect();
 

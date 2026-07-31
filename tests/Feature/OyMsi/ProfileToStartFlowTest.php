@@ -18,7 +18,7 @@ function reachProfileStep(): TestAttempt
     $birthdate = now()->subYears(16)->subDays(1)->format('Y-m-d');
 
     test()->actingAs(test()->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => $birthdate])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields($birthdate))
         ->assertRedirect(route('assessment.consent', 'OY_MSI'));
 
     test()->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1'])->assertRedirect();

@@ -79,3 +79,14 @@ function completedAttempt(array $overrides = [], ?App\Models\User $user = null):
 
     return $attempt->fresh();
 }
+
+/**
+ * 연령 게이트 폼이 실제로 보내는 형태(년·월·일 세 칸)를 만든다.
+ * 테스트가 폼과 다른 모양을 보내면 폼이 깨져도 초록으로 남는다 — 78625c8(405) 재발 방지.
+ */
+function birthdateFields(string $ymd): array
+{
+    [$y, $m, $d] = explode('-', $ymd);
+
+    return ['birth_year' => $y, 'birth_month' => $m, 'birth_day' => $d];
+}

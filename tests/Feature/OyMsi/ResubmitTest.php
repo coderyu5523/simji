@@ -113,9 +113,9 @@ test('링크 경로도 재제출하면 결과로 보내고 재채점하지 않�
         'access_token' => 'tok-resubmit',
     ]);
 
-    $this->post(route('link.age.submit', 'tok-resubmit'), [
-        'birthdate' => now()->subYears(16)->subDays(1)->format('Y-m-d'),
-    ])->assertRedirect(route('link.landing', 'tok-resubmit'));
+    $this->post(route('link.age.submit', 'tok-resubmit'),
+        birthdateFields(now()->subYears(16)->subDays(1)->format('Y-m-d'))
+    )->assertRedirect(route('link.landing', 'tok-resubmit'));
 
     $this->post(route('link.start', 'tok-resubmit'), [
         'nickname' => '민수', 'gender' => 'male', 'agree' => '1',

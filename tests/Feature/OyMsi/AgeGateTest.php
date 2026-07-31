@@ -36,7 +36,7 @@ function ageGateVoucher(Test $test, User $issuer, string $token, bool $guardianC
 
 test('만 14~18세는 개인 경로로 통과한다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(16)])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(16)))
         ->assertRedirect(route('assessment.consent', 'OY_MSI'));
 
     expect(session('oymsi_age:OY_MSI'))->toBe(16);
@@ -44,7 +44,7 @@ test('만 14~18세는 개인 경로로 통과한다', function () {
 
 test('만 13세는 개인 경로에서 차단되고 기관 안내를 본다', function () {
     $res = $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(13)]);
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(13)));
 
     $res->assertOk();
     $res->assertSee('기관을 통해');
@@ -54,7 +54,7 @@ test('만 13세는 개인 경로에서 차단되고 기관 안내를 본다', fu
 
 test('만 12세는 대상 연령이 아니라 차단된다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(12)])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(12)))
         ->assertOk()
         ->assertSee('대상');
 
@@ -63,7 +63,7 @@ test('만 12세는 대상 연령이 아니라 차단된다', function () {
 
 test('만 19세는 대상 연령이 아니라 차단된다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(19)])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(19)))
         ->assertOk()
         ->assertSee('대상');
 
@@ -79,7 +79,7 @@ test('연령 확인 없이 동의 화면에 들어가면 연령 게이트로 보
 test('링크 경로 · 만 13세 · 담당자 확인 있으면 통과하고 동의가 기록된다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok13ok', guardianConfirmed: true);
 
-    $this->post(route('link.age.submit', $voucher->access_token), ['birthdate' => birthdateForAge(13)])
+    $this->post(route('link.age.submit', $voucher->access_token), birthdateFields(birthdateForAge(13)))
         ->assertRedirect(route('link.landing', $voucher->access_token));
 
     expect(session('oymsi_age_token:tok13ok'))->toBe(13);
@@ -106,7 +106,7 @@ test('링크 경로 · 만 13세 · 담당자 확인 있으면 통과하고 동�
 test('링크 start 를 여러 번 제출해도 attempt 와 동의기록이 하나씩만 생긴다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok-dup', guardianConfirmed: true);
 
-    $this->post(route('link.age.submit', 'tok-dup'), ['birthdate' => birthdateForAge(13)]);
+    $this->post(route('link.age.submit', 'tok-dup'), birthdateFields(birthdateForAge(13)));
     $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
     $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
     $this->post(route('link.start', 'tok-dup'), ['nickname' => '홍길동', 'gender' => 'male', 'agree' => '1']);
@@ -124,7 +124,7 @@ test('링크 start 를 여러 번 제출해도 attempt 와 동의기록이 하�
 test('링크 경로 · 만 13세 · 담당자 확인 없으면 차단된다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok13no');
 
-    $this->post(route('link.age.submit', $voucher->access_token), ['birthdate' => birthdateForAge(13)])
+    $this->post(route('link.age.submit', $voucher->access_token), birthdateFields(birthdateForAge(13)))
         ->assertOk()
         ->assertSee('담당자');
 
@@ -133,7 +133,7 @@ test('링크 경로 · 만 13세 · 담당자 확인 없으면 차단된다', fu
 
 test('생년월일은 어디에도 저장되지 않는다 (만 나이만)', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => '2010-03-15']);
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields('2010-03-15'));
 
     expect(session()->all())->not->toHaveKey('birthdate');
     expect(session('oymsi_age:OY_MSI'))->toBeInt();
@@ -141,14 +141,50 @@ test('생년월일은 어디에도 저장되지 않는다 (만 나이만)', func
 
 test('미래 날짜·잘못된 형식은 거부한다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => now()->addDay()->format('Y-m-d')])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(now()->addDay()->format('Y-m-d')))
         ->assertSessionHasErrors('birthdate');
 
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => '아무말'])
+        ->post(route('oymsi.age.submit', 'OY_MSI'),
+            ['birth_year' => '아무말', 'birth_month' => '3', 'birth_day' => '15'])
         ->assertSessionHasErrors('birthdate');
 
     expect(session('oymsi_age:OY_MSI'))->toBeNull();
+});
+
+// 년·월·일을 따로 받으면서 새로 생긴 실패 경로. 칸마다 따로 검증하면 각 값은 멀쩡한데
+// 조합이 존재하지 않는 날짜가 그대로 통과한다.
+test('존재하지 않는 날짜 조합은 거부한다', function () {
+    $this->actingAs($this->user)
+        ->post(route('oymsi.age.submit', 'OY_MSI'),
+            ['birth_year' => '2011', 'birth_month' => '2', 'birth_day' => '30'])
+        ->assertSessionHasErrors('birthdate');
+
+    expect(session('oymsi_age:OY_MSI'))->toBeNull();
+});
+
+test('빈 칸이 있으면 거부한다', function () {
+    $this->actingAs($this->user)
+        ->post(route('oymsi.age.submit', 'OY_MSI'),
+            ['birth_year' => '2010', 'birth_month' => '', 'birth_day' => '15'])
+        ->assertSessionHasErrors('birthdate');
+
+    expect(session('oymsi_age:OY_MSI'))->toBeNull();
+});
+
+// 한 자리로 적어도(3월 → "3") 받아야 한다. 앞자리 0 을 강요하면 입력이 다시 불편해진다.
+test('월·일을 한 자리로 적어도 통과한다', function () {
+    $target = now()->subYears(16)->subDays(1);
+
+    $this->actingAs($this->user)
+        ->post(route('oymsi.age.submit', 'OY_MSI'), [
+            'birth_year' => (string) $target->year,
+            'birth_month' => (string) $target->month,
+            'birth_day' => (string) $target->day,
+        ])
+        ->assertRedirect(route('assessment.consent', 'OY_MSI'));
+
+    expect(session('oymsi_age:OY_MSI'))->toBe(16);
 });
 
 // ── (a) fail closed: 나이를 모르는 attempt 는 통과가 아니라 차단 ────────────
@@ -225,7 +261,7 @@ test('(①) 나이 null 로 굳은 created attempt 도 나이 확정 후 다시 
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertForbidden();
 
     // 나이를 확정하고 동의를 다시 확인한다 → 재사용 분기에서도 나이가 채워져야 한다
-    $this->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(16)])
+    $this->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(16)))
         ->assertRedirect(route('assessment.consent', 'OY_MSI'));
     $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1'])
         ->assertRedirect(route('oymsi.profile.form', 'OY_MSI'));
@@ -253,7 +289,7 @@ test('나이 없이 agree 를 직접 POST 하면 연령 게이트로 돌려보�
 
 test('만 13세가 차단당한 뒤 agree 를 직접 POST 해도 세션에 나이가 없어 막힌다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(13)])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(13)))
         ->assertOk();
 
     $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1'])
@@ -307,7 +343,7 @@ test('링크: 동의 체크 없이 start 하면 거부되고 attempt 가 생기�
 
 test('개인 경로 만 16세는 연령 → 동의 → 시작 → 검사까지 이어진다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(16)])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(birthdateForAge(16)))
         ->assertRedirect(route('assessment.consent', 'OY_MSI'));
 
     $this->get(route('assessment.consent', 'OY_MSI'))->assertOk();
@@ -325,7 +361,7 @@ test('개인 경로 만 16세는 연령 → 동의 → 시작 → 검사까지 �
 test('링크 경로 만 16세는 연령 → 동의 → 검사까지 이어지고 sensitive 동의가 기록된다', function () {
     $voucher = ageGateVoucher($this->test, $this->user, 'tok16');
 
-    $this->post(route('link.age.submit', 'tok16'), ['birthdate' => birthdateForAge(16)])
+    $this->post(route('link.age.submit', 'tok16'), birthdateFields(birthdateForAge(16)))
         ->assertRedirect(route('link.landing', 'tok16'));
     $this->get(route('link.landing', 'tok16'))->assertOk();
 
@@ -373,4 +409,18 @@ test('옛 requires_guardian_consent 플로우는 연령 게이트와 별개로 �
             'ELEM-AGE',
             TestAttempt::where('test_id', $old->id)->latest('id')->firstOrFail()->id,
         ]));
+});
+
+// 달력 피커로 되돌아가면 연도 스크롤 불편이 그대로 돌아온다 — 폼 모양 자체를 고정한다.
+test('연령 입력은 달력 피커가 아니라 숫자 세 칸이다', function () {
+    $html = $this->actingAs($this->user)
+        ->get(route('oymsi.age.form', 'OY_MSI'))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->not->toContain('type="date"');
+    foreach (['birth_year', 'birth_month', 'birth_day'] as $field) {
+        expect($html)->toContain('name="'.$field.'"');
+    }
+    expect($html)->toContain('inputmode="numeric"');
 });

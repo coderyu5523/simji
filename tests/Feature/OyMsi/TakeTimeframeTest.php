@@ -43,9 +43,8 @@ test('12개월 기준 문항은 문항 텍스트 자체에 기간이 적혀 있�
 // 동의 화면은 연령 게이트 뒤에 있으므로(fail closed) 나이를 먼저 통과시킨다.
 test('2주 기준은 동의 화면이 알린다', function () {
     $this->actingAs($this->user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), [
-            'birthdate' => now()->subYears(16)->subDay()->format('Y-m-d'),
-        ]);
+        ->post(route('oymsi.age.submit', 'OY_MSI'),
+            birthdateFields(now()->subYears(16)->subDay()->format('Y-m-d')));
 
     $this->actingAs($this->user)
         ->get(route('assessment.consent', 'OY_MSI'))

@@ -88,12 +88,42 @@ class AgeGateController extends Controller
         return $this->ageGate->calculateAge($birthdate);
     }
 
+    /**
+     * 폼은 년·월·일을 세 칸으로 나눠 받는다(달력 피커의 연도 스크롤을 없애려고).
+     * 검증은 조립한 날짜 하나로 한다 — 칸마다 따로 보면 2월 30일 같은 조합 오류를
+     * 아무도 잡지 못한다. 오류 메시지는 전부 birthdate 키로 모은다(화면 표시 위치 고정).
+     */
     private function validateAge(Request $request): int
     {
-        $data = $request->validate([
-            'birthdate' => ['required', 'date', 'before:today', 'after:'.now()->subYears(120)->format('Y-m-d')],
-        ]);
+        $parts = [];
+        foreach (['birth_year' => 4, 'birth_month' => 2, 'birth_day' => 2] as $field => $maxLen) {
+            $raw = trim((string) $request->input($field, ''));
+            if ($raw === '' || !preg_match('/^\d{1,'.$maxLen.'}$/', $raw)) {
+                $this->failBirthdate('생년월일을 숫자로 모두 입력해 주세요.');
+            }
+            $parts[$field] = (int) $raw;
+        }
 
-        return $this->calculateAge($data['birthdate']);
+        if (!checkdate($parts['birth_month'], $parts['birth_day'], $parts['birth_year'])) {
+            $this->failBirthdate('없는 날짜입니다. 생년월일을 다시 확인해 주세요.');
+        }
+
+        $birthdate = sprintf('%04d-%02d-%02d', $parts['birth_year'], $parts['birth_month'], $parts['birth_day']);
+        $parsed = \Carbon\Carbon::parse($birthdate)->startOfDay();
+
+        // 예전 date 규칙(before:today, after:120년 전)과 같은 범위를 유지한다.
+        if ($parsed->greaterThanOrEqualTo(now()->startOfDay())) {
+            $this->failBirthdate('오늘보다 뒤의 날짜는 입력할 수 없습니다.');
+        }
+        if ($parsed->lessThanOrEqualTo(now()->subYears(120)->startOfDay())) {
+            $this->failBirthdate('생년월일을 다시 확인해 주세요.');
+        }
+
+        return $this->calculateAge($birthdate);
+    }
+
+    private function failBirthdate(string $message): never
+    {
+        throw \Illuminate\Validation\ValidationException::withMessages(['birthdate' => $message]);
     }
 }

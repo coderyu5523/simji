@@ -17,7 +17,7 @@ beforeEach(function () {
 function passGateAndConsent($testCase, User $user, int $age = 16): TestAttempt
 {
     $testCase->actingAs($user)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => now()->subYears($age)->subDay()->format('Y-m-d')]);
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields(now()->subYears($age)->subDay()->format('Y-m-d')));
     $testCase->actingAs($user)->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1']);
 
     return TestAttempt::latest('id')->firstOrFail();
@@ -131,7 +131,7 @@ test('링크 경로는 담당자 명부 이름과 청소년 닉네임을 분리 
     ]);
 
     $this->post(route('link.age.submit', 'tokprofile'),
-                ['birthdate' => now()->subYears(16)->subDay()->format('Y-m-d')]);
+                birthdateFields(now()->subYears(16)->subDay()->format('Y-m-d')));
     $this->post(route('link.start', 'tokprofile'), ['nickname' => '별명이', 'gender' => 'female', 'agree' => '1'])
          ->assertRedirect();
 

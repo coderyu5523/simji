@@ -233,7 +233,7 @@ test('담당자가 확인한 링크로 만 13세가 응시를 완주하고 담�
 
     // ② 만 13세가 링크로 응시
     $birthdate = now()->subYears(13)->subDays(1)->format('Y-m-d');
-    $this->post(route('link.age.submit', 'tok-e2e'), ['birthdate' => $birthdate])
+    $this->post(route('link.age.submit', 'tok-e2e'), birthdateFields($birthdate))
         ->assertRedirect(route('link.landing', 'tok-e2e'));
 
     $this->post(route('link.start', 'tok-e2e'), ['nickname' => '민수', 'gender' => 'male', 'agree' => '1'])
@@ -266,7 +266,7 @@ test('확인하지 않은 링크로는 만 13세가 여전히 차단된다', fun
     guardianConfirmVoucher($this->test, $this->staff, 'tok-still-blocked');
 
     $birthdate = now()->subYears(13)->subDays(1)->format('Y-m-d');
-    $this->post(route('link.age.submit', 'tok-still-blocked'), ['birthdate' => $birthdate])
+    $this->post(route('link.age.submit', 'tok-still-blocked'), birthdateFields($birthdate))
         ->assertOk()
         ->assertSee('담당자');
 
@@ -277,7 +277,7 @@ test('개인 경로의 만 13세 차단은 이번 변경으로 뚫리지 않는�
     $birthdate = now()->subYears(13)->subDays(1)->format('Y-m-d');
 
     $this->actingAs($this->staff)
-        ->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => $birthdate])
+        ->post(route('oymsi.age.submit', 'OY_MSI'), birthdateFields($birthdate))
         ->assertOk()
         ->assertSee('기관을 통해');
 
