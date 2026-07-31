@@ -51,3 +51,24 @@ test('2주 기준은 동의 화면이 알린다', function () {
         ->assertOk()
         ->assertSee('최근 2주');
 });
+
+// legend 로 되돌리면 브라우저가 다시 테두리 위에 얹어 렌더한다 — 문항이 박스 안에 있도록 고정한다.
+test('문항 텍스트는 박스 안에 흐르는 요소이고 그룹 이름은 유지된다', function () {
+    $attempt = TestAttempt::create([
+        'test_id' => $this->test->id, 'user_id' => $this->user->id,
+        'status' => 'in_progress', 'started_at' => now(),
+        'age_at_test' => 16, 'nickname' => '민수',
+    ]);
+    app(ConsentGate::class)->record($attempt, ConsentGate::SENSITIVE, 'youth', $this->user->id);
+
+    $html = $this->actingAs($this->user)
+        ->get(route('assessment.take', ['OY_MSI', $attempt->id]))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->not->toContain('<legend');
+
+    $first = $this->test->items->first();
+    expect($html)->toContain('aria-labelledby="q-label-'.$first->id.'"');
+    expect($html)->toContain('id="q-label-'.$first->id.'"');
+});

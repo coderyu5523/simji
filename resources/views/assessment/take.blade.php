@@ -31,8 +31,13 @@
             }
             $isSafety = $item->area === 'SAF';
           @endphp
-          <fieldset class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5" data-q>
-            <legend class="font-semibold text-navy flex gap-2"><span class="text-teal">{{ $item->no }}.</span> {{ $item->text }}</legend>
+          {{-- 문항 텍스트를 legend 로 두면 브라우저가 fieldset 테두리 위에 얹어 렌더한다(기본 동작).
+               박스의 p-6 패딩도 legend 에는 걸리지 않아 흰 박스와 배경 경계에 걸쳐 보였다.
+               일반 요소로 바꿔 박스 안에 흐르게 하고, 그룹 이름은 aria-labelledby 로 유지한다
+               (라디오 묶음의 이름이 사라지면 스크린리더에서 문항을 알 수 없다). --}}
+          <fieldset class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5" data-q
+                    aria-labelledby="q-label-{{ $item->id }}">
+            <p id="q-label-{{ $item->id }}" class="font-semibold text-navy flex gap-2"><span class="text-teal">{{ $item->no }}.</span> {{ $item->text }}</p>
 
             {{-- 기간 안내는 따로 붙이지 않는다 (TakeTimeframeTest 가 근거를 고정한다).
                  12개월 기준 문항(SAF05·SAF06)은 문항 텍스트에 "최근 12개월 동안"이 들어 있고,
