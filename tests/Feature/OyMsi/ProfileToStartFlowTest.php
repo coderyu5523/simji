@@ -41,17 +41,10 @@ test('기본정보를 제출한 뒤 리다이렉트를 따라가면 GET 으로 �
     $this->get($res->headers->get('Location'))->assertOk();
 });
 
-test('기본정보 제출 → 안내 → 검사 시작 → 문항 화면까지 이어진다', function () {
+test('기본정보 제출 → 문항 화면으로 바로 이어진다 (안내 단계 없음)', function () {
     $attempt = reachProfileStep();
 
     $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
-
-    $this->get(route('assessment.intro', 'OY_MSI'))
-        ->assertOk()
-        ->assertSee('검사 시작');
-
-    $this->post(route('assessment.start', 'OY_MSI'))
         ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));
 
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();

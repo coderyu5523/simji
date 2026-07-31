@@ -30,10 +30,14 @@ test('guardian test agree requires guardian_agree', function () {
 });
 
 test('guardian test agree passes with both checks', function () {
-    makeGuardianTest();
-    $this->actingAs(User::factory()->create())
+    $test = makeGuardianTest();
+    $user = User::factory()->create();
+    $this->actingAs($user)
         ->post('/assessment/ELEM-GC/agree', ['agree'=>'1','guardian_agree'=>'1'])
-        ->assertRedirect(route('assessment.intro','ELEM-GC'));
+        ->assertRedirect(route('assessment.take', [
+            'ELEM-GC',
+            \App\Models\TestAttempt::where('test_id', $test->id)->latest('id')->firstOrFail()->id,
+        ]));
 });
 
 test('adult test consent unchanged (no guardian section)', function () {

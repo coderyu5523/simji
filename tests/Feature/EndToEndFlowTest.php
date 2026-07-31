@@ -13,13 +13,13 @@ test('logged-in user completes the whole assessment journey', function () {
     $this->get('/tests/room/worker')->assertSee('직장인 마음상태 검사(샘플)');
     $this->get('/tests/KMSIA-SAMPLE')->assertSee('검사 시작');
 
+    // 안내(intro) 단계 제거: 동의가 곧 시작이다. 리다이렉트 주소만 믿지 않고 실제로 따라간다.
     $this->get('/assessment/KMSIA-SAMPLE/consent')->assertOk();
-    $this->post('/assessment/KMSIA-SAMPLE/agree', ['agree'=>'1'])->assertRedirect();
-    $this->get('/assessment/KMSIA-SAMPLE/intro')->assertOk();
+    $agree = $this->post('/assessment/KMSIA-SAMPLE/agree', ['agree'=>'1']);
 
-    $start = $this->post('/assessment/KMSIA-SAMPLE/start');
     $attempt = \App\Models\TestAttempt::latest('id')->first();
-    $start->assertRedirect(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]));
+    $agree->assertRedirect(route('assessment.take', ['KMSIA-SAMPLE', $attempt->id]));
+    $this->get($agree->headers->get('Location'))->assertOk();
     expect($attempt->user_id)->toBe($user->id);
 
     $test = Test::where('code','KMSIA-SAMPLE')->with('items')->first();

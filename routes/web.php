@@ -52,7 +52,6 @@ Route::middleware('auth')->controller(ProfileStepController::class)
 Route::middleware('auth')->controller(AssessmentController::class)->prefix('assessment/{code}')->name('assessment.')->group(function () {
     Route::get('consent', 'consent')->name('consent');
     Route::post('agree', 'agree')->name('agree');
-    Route::get('intro', 'intro')->name('intro');
     Route::post('start', 'start')->name('start');
     Route::get('take/{attempt}', 'take')->name('take');
     Route::post('take/{attempt}', 'submit')->name('submit');

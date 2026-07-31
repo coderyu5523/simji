@@ -18,7 +18,7 @@ class ProfileStepController extends Controller
         return view('oymsi.profile-step', ['test' => $test]);
     }
 
-    public function submit(Request $request, string $code)
+    public function submit(Request $request, string $code, \App\Services\AssessmentStarter $starter)
     {
         $test = Test::where('code', $code)->firstOrFail();
         $attempt = $this->attemptOrFail($request, $test);
@@ -34,11 +34,10 @@ class ProfileStepController extends Controller
             'age_at_test' => $attempt->age_at_test ?? $request->session()->get('oymsi_age:'.$code),
         ]);
 
-        // assessment.start 는 POST 전용이다(검사를 in_progress 로 바꾸고 검사권을 소비하는
-        // 부작용이 있어 GET 으로 열면 안 된다). 리다이렉트는 브라우저가 GET 으로 따라가므로
-        // 여기서 start 로 보내면 405 가 난다 — GET 으로 열리는 안내 화면으로 보내고,
-        // 그 화면의 "검사 시작" 폼이 POST 로 start 를 호출한다.
-        return redirect()->route('assessment.intro', $code);
+        // 검사 시작은 부작용이 있어 GET 으로 열 수 없다. 예전에는 그래서 GET 으로 열리는
+        // 안내 화면을 경유지로 삼았는데, 안내가 이 단계보다 앞에 있어 같은 화면을 두 번
+        // 지나게 됐다. 여기는 이미 POST 이므로 리다이렉트 대신 시작을 직접 호출한다.
+        return $starter->start($request, $test);
     }
 
     // 형제 코드(AssessmentController::start():117-122)와 동일하게 소유권·검사종류 일치를 확인한다.

@@ -228,14 +228,14 @@ test('(①) 나이 null 로 굳은 created attempt 도 나이 확정 후 다시 
     $this->post(route('oymsi.age.submit', 'OY_MSI'), ['birthdate' => birthdateForAge(16)])
         ->assertRedirect(route('assessment.consent', 'OY_MSI'));
     $this->post(route('assessment.agree', 'OY_MSI'), ['agree' => '1'])
-        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
+        ->assertRedirect(route('oymsi.profile.form', 'OY_MSI'));
 
     expect(TestAttempt::where('test_id', $this->test->id)->count())->toBe(1); // 재사용
     expect($attempt->fresh()->age_at_test)->toBe(16);
 
     // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
     $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
+        ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));
 
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();
 });
@@ -318,9 +318,6 @@ test('개인 경로 만 16세는 연령 → 동의 → 시작 → 검사까지 �
 
     // Task 14: 응시 전 기본정보(닉네임·성별) 단계를 거쳐야 한다.
     $this->post(route('oymsi.profile.submit', 'OY_MSI'), ['nickname' => '민수', 'gender' => 'male'])
-        ->assertRedirect(route('assessment.intro', 'OY_MSI'));
-
-    $this->post(route('assessment.start', 'OY_MSI'))
         ->assertRedirect(route('assessment.take', ['OY_MSI', $attempt->id]));
     $this->get(route('assessment.take', ['OY_MSI', $attempt->id]))->assertOk();
 });
@@ -372,5 +369,8 @@ test('옛 requires_guardian_consent 플로우는 연령 게이트와 별개로 �
 
     $this->actingAs($this->user)->get(route('assessment.consent', 'ELEM-AGE'))->assertOk();
     $this->post(route('assessment.agree', 'ELEM-AGE'), ['agree' => '1', 'guardian_agree' => '1'])
-        ->assertRedirect(route('assessment.intro', 'ELEM-AGE'));
+        ->assertRedirect(route('assessment.take', [
+            'ELEM-AGE',
+            TestAttempt::where('test_id', $old->id)->latest('id')->firstOrFail()->id,
+        ]));
 });

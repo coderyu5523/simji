@@ -8,14 +8,7 @@ use Illuminate\Http\Request;
 
 class AssessmentController extends Controller
 {
-    private function actorColumns(Request $request): array
-    {
-        if (auth()->check()) return ['user_id' => auth()->id(), 'guest_token' => null];
-        if (!$request->session()->get('guest_token')) {
-            $request->session()->put('guest_token', (string) \Illuminate\Support\Str::uuid());
-        }
-        return ['user_id' => null, 'guest_token' => $request->session()->get('guest_token')];
-    }
+    public function __construct(private \App\Services\AssessmentStarter $starter) {}
 
     /**
      * 연령 확인이 필요한 검사인데 세션에 만 나이가 없으면 연령 게이트로 보낸다.
@@ -70,7 +63,7 @@ class AssessmentController extends Controller
                 }
             } else {
                 $attempt = TestAttempt::create(array_merge(
-                    $this->actorColumns($request),
+                    $this->starter->actorColumns($request),
                     [
                         'test_id' => $test->id,
                         'status' => 'created',
@@ -84,70 +77,20 @@ class AssessmentController extends Controller
             }
         }
 
-        return redirect()->route('assessment.intro', $code);
-    }
-
-    public function intro(string $code)
-    {
-        $test = Test::where('code', $code)->firstOrFail();
-        return view('assessment.intro', compact('test'));
-    }
-
-    public function start(Request $request, string $code, \App\Services\VoucherService $vouchers)
-    {
-        $test = Test::where('code', $code)->firstOrFail();
-
-        // 보호자 동의 검사: 동의 통과 세션 플래그 없으면 동의로
-        if ($test->requires_guardian_consent && !$request->session()->get('consent_ok:'.$code)) {
-            return redirect()->route('assessment.consent', $code);
-        }
-
-        // 자격(entitlement) 확인은 consent_required 분기보다 먼저 돈다 — consent_required 라고
-        // 유료 검사의 결제·검사권 확인을 건너뛰면 안 된다.
-        $consume = null;
-        if ($test->isPaid()) {
-            if (!auth()->check()) return redirect()->route('login');
-            $consume = $vouchers->firstActive(auth()->user(), $test);
-            if (!$consume) {
-                return redirect()->route('checkout.show', $test->activeProduct()->id);
-            }
-        }
-
+        // 기본정보 단계가 있는 검사(consent_required)는 그리로 보내고, 없는 검사는 동의가 곧
+        // 시작이다. 안내(intro) 화면은 거치지 않는다 — 그 경유가 같은 화면을 두 번 지나게 했다.
         if ($test->consent_required) {
-            $existingId = $request->session()->get('oymsi_attempt:'.$code);
-            $attempt = $existingId ? TestAttempt::find($existingId) : null;
-            abort_unless($attempt && $attempt->test_id === $test->id, 403, '검사 전 동의가 확인되지 않았습니다.');
-            // 제출 완료된 attempt 로 start() 를 재호출해도 submitted -> in_progress 로 되돌리지 않는다
-            // (되돌리면 이중제출 가드가 무력화되고 채점이 재실행된다). 상태는 그대로 두고 결과로 보낸다.
-            if ($attempt->status === 'submitted') {
-                return redirect()->route('result.show', $attempt->id);
-            }
-            // 기본정보(닉네임)를 건너뛰고 응시로 직행할 수 없다 — 없으면 기본정보 화면으로 되돌린다.
-            if (!$attempt->nickname) {
-                return redirect()->route('oymsi.profile.form', $code);
-            }
-            $attempt->update(['status' => 'in_progress', 'started_at' => now()]);
-            if ($consume && !$attempt->voucher_id) {
-                $vouchers->consume(auth()->user(), $test, $attempt);
-            }
-            return redirect()->route('assessment.take', [$code, $attempt->id]);
+            return redirect()->route('oymsi.profile.form', $code);
         }
 
-        $attempt = TestAttempt::create(array_merge(
-            $this->actorColumns($request),
-            [
-                'test_id' => $test->id, 'status' => 'in_progress', 'started_at' => now(),
-                // consent_required 가 아니어도 연령 게이트를 거친 검사면 나이를 남긴다
-                // (ConsentGate 의 fail closed 가 이 값을 본다).
-                'age_at_test' => $request->session()->get('oymsi_age:'.$code),
-            ]
-        ));
+        return $this->starter->start($request, $test);
+    }
 
-        if ($consume) {
-            $vouchers->consume(auth()->user(), $test, $attempt);
-        }
+    public function start(Request $request, string $code)
+    {
+        $test = Test::where('code', $code)->firstOrFail();
 
-        return redirect()->route('assessment.take', [$code, $attempt->id]);
+        return $this->starter->start($request, $test);
     }
 
     private function authorizeAttempt(Request $request, TestAttempt $attempt): void

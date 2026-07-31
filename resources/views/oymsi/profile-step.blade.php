@@ -1,7 +1,7 @@
 <x-layouts.app :title="'기본정보 · '.$test->title_easy">
   <div class="bg-cream min-h-[70vh]">
     <div class="max-w-md mx-auto px-4 py-12">
-      <p class="text-sm text-teal font-semibold">2 동의 완료 · <span class="text-navy/40">3 기본정보 · 4 검사</span></p>
+      <p class="text-sm text-teal font-semibold"><span class="text-navy/40">1 동의 ·</span> 2 기본정보 · <span class="text-navy/40">3 검사</span></p>
       <h1 class="text-2xl font-extrabold text-deepgreen mt-2">어떻게 부르면 좋을까요?</h1>
       <p class="text-sm text-navy/60 mt-2">결과지에 이 이름이 표시됩니다. 실명이 아니어도 괜찮습니다.</p>
 
